@@ -64,6 +64,15 @@
 
 <script>
 
+// Random digits matching the "20260914948" (11-digit) reference shape.
+function buildPartnerInvoiceId() {
+    let digits = "";
+    for (let i = 0; i < 11; i++) {
+        digits += Math.floor(Math.random() * 10);
+    }
+    return "INV" + digits;
+}
+
 async function createOrder() {
 
     const webinitToken =
@@ -82,7 +91,7 @@ async function createOrder() {
         webinitToken: webinitToken,
 
         partnerInvoiceId:
-            "INV20260914948",
+            buildPartnerInvoiceId(),
 
         partnerReferenceId:
             "REF20260522",
