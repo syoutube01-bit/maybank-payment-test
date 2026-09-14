@@ -64,6 +64,31 @@
 
 <script>
 
+// WEB_INIT_TOKEN is pulled on demand from the SecureWebView bridge (never
+// injected on window), so the native layer can verify origin and re-mint
+// an expired token on each request.
+function readWebInitToken() {
+    if (!window.nativeMessageService) return Promise.resolve("");
+    return window.nativeMessageService
+        .callAPI("GET_INIT_TOKEN", {})
+        .then(function (res) {
+            return (res && res.webInitToken) || "";
+        })
+        .catch(function () {
+            return "";
+        });
+}
+
+// Prefill the input from the bridge when hosted inside the app's WebView;
+// the field stays editable for standalone browser testing.
+window.addEventListener("DOMContentLoaded", function () {
+    readWebInitToken().then(function (webInitToken) {
+        if (webInitToken) {
+            document.getElementById("webinitToken").value = webInitToken;
+        }
+    });
+});
+
 // Random digits matching the "20260914948" (11-digit) reference shape.
 function buildPartnerInvoiceId() {
     let digits = "";
@@ -76,7 +101,8 @@ function buildPartnerInvoiceId() {
 async function createOrder() {
 
     const webinitToken =
-        document.getElementById("webinitToken").value;
+        document.getElementById("webinitToken").value ||
+        (await readWebInitToken());
 
     const amount =
         Number(document.getElementById("amount").value);
