@@ -92,6 +92,17 @@
 
 <script>
 
+// navigator.userAgent is overridden to "Maybank-MY" by SecureWebView, so it can't
+// tell iOS from Android; navigator.platform is untouched by that override.
+function detectNativePlatform() {
+    var platform = (navigator.platform || "").toLowerCase();
+    if (/iphone|ipad|ipod|mac/.test(platform)) return "ios";
+    if (/linux|android/.test(platform)) return "android";
+    return "unknown";
+}
+
+console.log("[PlatformCheck] navigator.platform:", navigator.platform, "->", detectNativePlatform());
+
 // WEB_INIT_TOKEN is pulled on demand from the SecureWebView bridge (never
 // injected on window), so the native layer can verify origin and re-mint
 // an expired token on each request.
@@ -124,6 +135,17 @@ function buildPartnerInvoiceId() {
         digits += Math.floor(Math.random() * 10);
     }
     return "INV" + digits;
+}
+
+// Calls the platform-specific redirection URL returned by create-order on success.
+async function triggerRedirection(url) {
+    try {
+        const response = await fetch(url);
+        const text = await response.text();
+        console.log("[Redirection] " + url + " -> " + response.status, text);
+    } catch (error) {
+        console.error("[Redirection] Failed to call " + url, error);
+    }
 }
 
 async function createOrder() {
@@ -184,6 +206,20 @@ async function createOrder() {
             "response"
         ).textContent =
             JSON.stringify(data, null, 2);
+
+        console.log("[Rajan] " + data + " -> " + response.status, data);
+        if (data && data.success) {
+            const platform = detectNativePlatform();
+            const redirectionUrl =
+                data.redirection &&
+                data.redirection[platform === "ios" ? "ios" : "android"];
+
+            if (redirectionUrl) {
+                await triggerRedirection(redirectionUrl);
+            } else {
+                console.warn("[Redirection] No redirection URL for platform:", platform);
+            }
+        }
 
     } catch (error) {
 
