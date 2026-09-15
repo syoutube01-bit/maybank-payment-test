@@ -6,28 +6,53 @@
     <title>Maybank Payment Test</title>
 
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 700px;
-            margin: 40px auto;
-            padding: 20px;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
+        * {
             box-sizing: border-box;
         }
 
+        body {
+            font-family: Arial, sans-serif;
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 32px 24px;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 50%, #ff8a00 100%);
+            color: #fff;
+        }
+
+        h2 {
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        .hidden-field {
+            display: none;
+        }
+
         button {
-            padding: 12px 20px;
+            padding: 14px 24px;
+            border: 0;
+            border-radius: 30px;
+            background: #ffce00;
+            color: #222;
+            font-size: 16px;
+            font-weight: 700;
             cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        button:active {
+            transform: translateY(1px);
         }
 
         pre {
-            background: #f5f5f5;
+            background: rgba(255, 255, 255, 0.95);
+            color: #222;
             padding: 15px;
+            border-radius: 12px;
             white-space: pre-wrap;
             word-break: break-word;
         }
@@ -38,21 +63,24 @@
 
 <h2>Maybank Payment Order Test - 1</h2>
 
-<label>WebInit Token</label>
+<label class="hidden-field">WebInit Token</label>
 
 <input
+    class="hidden-field"
     type="text"
     id="webinitToken"
     placeholder="Enter webinitToken"
 />
 
-<label>Amount</label>
+<label class="hidden-field">Amount</label>
 
 <input
+    class="hidden-field"
     type="number"
     id="amount"
     value="100"
 />
+
 
 <button onclick="createOrder()">
     Create Payment Order
