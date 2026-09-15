@@ -212,16 +212,17 @@ async function createOrder() {
         if (data && data.success) {
             const platform = detectNativePlatform();
             console.log("[Rajan] Platform detected: " + platform);
+            const redirection = data.data && data.data.redirection;
+            console.log("[Rajan] redirection: " + redirection);
             let redirectionUrl = "";
-            if(platform === "ios") {
-                redirectionUrl = data.redirection.ios;      
-            } else {
-                redirectionUrl = data.redirection.android;
+            if (redirection) {
+                if (platform === "ios") {
+                    redirectionUrl = redirection.ios;
+                } else {
+                    redirectionUrl = redirection.android;
+                }
             }
 
-            // const redirectionUrl =
-            //     data.redirection &&
-            //     data.redirection[platform === "ios" ? "ios" : "android"];
             console.log("[Rajan] redirectionUrl: " + redirectionUrl);
 
             if (redirectionUrl) {
