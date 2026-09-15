@@ -208,6 +208,7 @@ async function createOrder() {
             JSON.stringify(data, null, 2);
 
         console.log("[Rajan] " + data + " -> " + response.status, data);
+        try {
         if (data && data.success) {
             const platform = detectNativePlatform();
             console.log("[Rajan] Platform detected: " + platform);
@@ -228,6 +229,9 @@ async function createOrder() {
             } else {
                 console.warn("[Redirection] No redirection URL for platform:", platform);
             }
+        }
+        } catch (error) {
+            console.error("[Rajan] Error processing redirection:", error);
         }
 
     } catch (error) {
