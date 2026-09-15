@@ -173,12 +173,12 @@ function buildPartnerInvoiceId() {
 
 // Calls the platform-specific redirection URL returned by create-order on success.
 function triggerRedirection(url) {
-    //const deepLinkUrl = url.replace(/^https:\/\//, "m2ulife://");
-    console.log("[Redirection] Opening deep link:", url);
+    const deepLinkUrl = url.replace(/^https:\/\//, "m2ulife://");
+    console.log("[Redirection] Opening deep link:", deepLinkUrl);
     try {
-        window.location.href = url;
+        window.location.href = deepLinkUrl;
     } catch (error) {
-        console.warn("[Redirection] Failed to open deep link URL:", url, error);
+        console.warn("[Redirection] Failed to open deep link URL:", deepLinkUrl, error);
     }
 }
 
