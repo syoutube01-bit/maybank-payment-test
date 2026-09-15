@@ -61,7 +61,7 @@
 
 <body>
 
-<h2>Maybank Payment Order Test - 1</h2>
+<h2>Maybank Payment Order Test - 2</h2>
 
 <label class="hidden-field">WebInit Token</label>
 
@@ -211,9 +211,16 @@ async function createOrder() {
         if (data && data.success) {
             const platform = detectNativePlatform();
             console.log("[Rajan] Platform detected: " + platform);
-            const redirectionUrl =
-                data.redirection &&
-                data.redirection[platform === "ios" ? "ios" : "android"];
+            let redirectionUrl = "";
+            if(platform === "ios") {
+                redirectionUrl = data.redirection.ios;      
+            } else {
+                redirectionUrl = data.redirection.android;
+            }
+
+            // const redirectionUrl =
+            //     data.redirection &&
+            //     data.redirection[platform === "ios" ? "ios" : "android"];
             console.log("[Rajan] redirectionUrl: " + redirectionUrl);
 
             if (redirectionUrl) {
