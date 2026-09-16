@@ -10,6 +10,11 @@ app.use(express.urlencoded({ extended: true }));
 // Serve HTML
 app.use(express.static(path.join(__dirname, "public")));
 
+// Payment status screen (deep link target: /paymentstatus?oid=MBB232)
+app.get("/paymentstatus", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "paymentstatus.html"));
+});
+
 // Create Maybank payment order
 app.post("/api/create-order", async (req, res) => {
     try {
@@ -79,6 +84,72 @@ app.post("/api/create-order", async (req, res) => {
         ).json({
             success: false,
             message: "Unable to create payment order",
+            error: error.response?.data || error.message
+        });
+    }
+});
+
+// Fetch Maybank payment order status
+app.post("/api/order-status", async (req, res) => {
+    try {
+        const { webinitToken, orderId } = req.body;
+
+        if (!webinitToken) {
+            return res.status(400).json({
+                success: false,
+                message: "webinitToken is required"
+            });
+        }
+
+        if (!orderId) {
+            return res.status(400).json({
+                success: false,
+                message: "orderId is required"
+            });
+        }
+
+        const response = await axios.get(
+            `https://payments-npas.maybank.com.my/sit/payment-sdk/v1/orders/${encodeURIComponent(orderId)}`,
+            {
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    "x-mb-client-id":
+                        "mbb-mae-maybank-heart",
+
+                    "x-mb-e2e-id":
+                        "346918df-af88-4b3a-95e3-273eebf30aea",
+
+                    "x-mb-env":
+                        "U",
+
+                    "x-mb-timestamp":
+                        Date.now().toString(),
+
+                    "dip-authorization":
+                        `bearer ${webinitToken}`
+                }
+            }
+        );
+
+        return res.status(response.status).json({
+            success: true,
+            data: response.data
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Maybank API Error:",
+            error.response?.data || error.message
+        );
+
+        return res.status(
+            error.response?.status || 500
+        ).json({
+            success: false,
+            message: "Unable to fetch payment order status",
             error: error.response?.data || error.message
         });
     }

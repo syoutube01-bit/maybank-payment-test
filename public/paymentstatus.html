@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+
+    <title>Payment Status</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 32px 24px;
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            background-attachment: fixed;
+            color: #fff;
+        }
+
+        h2 {
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+
+        .order-id {
+            font-size: 18px;
+            font-weight: bold;
+            word-break: break-all;
+        }
+
+        button {
+            padding: 14px 24px;
+            border: 0;
+            border-radius: 30px;
+            background: #ffce00;
+            color: #222;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        pre {
+            background: rgba(255, 255, 255, 0.95);
+            color: #222;
+            padding: 15px;
+            border-radius: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .loader-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 1000;
+        }
+
+        .loader-overlay.visible {
+            display: flex;
+        }
+
+        .loader-spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #ffce00;
+            border-radius: 50%;
+            animation: loader-spin 0.8s linear infinite;
+        }
+
+        @keyframes loader-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>Payment Status</h2>
+
+<p>Order ID: <span class="order-id" id="orderId">-</span></p>
+
+<button onclick="fetchOrderStatus()">
+    Refresh Status
+</button>
+
+<h3>Response</h3>
+
+<pre id="response"></pre>
+
+<div class="loader-overlay" id="loaderOverlay">
+    <div class="loader-spinner"></div>
+</div>
+
+<script>
+
+// Same bridge contract as index.html: the token is never injected on window,
+// it is minted per request by the native layer.
+function readWebInitToken() {
+    if (!window.nativeMessageService) return Promise.resolve("");
+    return window.nativeMessageService
+        .callAPI("GET_INIT_TOKEN", {})
+        .then(function (res) {
+            return (res && res.webInitToken) || "";
+        })
+        .catch(function () {
+            return "";
+        });
+}
+
+function getOrderIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("oid") || "";
+}
+
+async function fetchOrderStatus() {
+
+    const orderId = getOrderIdFromUrl();
+
+    if (!orderId) {
+        document.getElementById("response").textContent =
+            "Missing oid query parameter";
+        return;
+    }
+
+    const webinitToken = await readWebInitToken();
+
+    const loaderOverlay = document.getElementById("loaderOverlay");
+    loaderOverlay.classList.add("visible");
+
+    try {
+
+        const response = await fetch(
+            "/api/order-status",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    webinitToken: webinitToken,
+                    orderId: orderId
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        document.getElementById("response").textContent =
+            JSON.stringify(data, null, 2);
+
+    } catch (error) {
+
+        document.getElementById("response").textContent =
+            error.toString();
+
+    } finally {
+        loaderOverlay.classList.remove("visible");
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const orderId = getOrderIdFromUrl();
+    document.getElementById("orderId").textContent = orderId || "-";
+    fetchOrderStatus();
+});
+
+</script>
+
+</body>
+</html>
