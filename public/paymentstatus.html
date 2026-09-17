@@ -11,174 +11,83 @@
         }
 
         body {
-            font-family: Arial, sans-serif;
-            width: 100%;
-            min-height: 100vh;
             margin: 0;
-            padding: 32px 24px;
-            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
-            background-attachment: fixed;
-            color: #fff;
-        }
-
-        h2 {
-            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-        }
-
-        .order-id {
-            font-size: 18px;
-            font-weight: bold;
-            word-break: break-all;
-        }
-
-        button {
-            padding: 14px 24px;
-            border: 0;
-            border-radius: 30px;
-            background: #ffce00;
-            color: #222;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-        }
-
-        button:active {
-            transform: translateY(1px);
-        }
-
-        pre {
-            background: rgba(255, 255, 255, 0.95);
-            color: #222;
-            padding: 15px;
-            border-radius: 12px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .loader-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
+            min-height: 100vh;
+            display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.35);
-            z-index: 1000;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 25%, #ff9a9e 50%, #a18cd1 75%, #7ad7f0 100%);
+            color: #111;
+            padding: 24px;
         }
 
-        .loader-overlay.visible {
-            display: flex;
+        .status-box {
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.22);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(8px);
+            border-radius: 28px;
+            padding: 40px 24px;
+            box-shadow: 0 22px 55px rgba(53, 18, 95, 0.18);
         }
 
-        .loader-spinner {
-            width: 48px;
-            height: 48px;
-            border: 5px solid rgba(255, 255, 255, 0.35);
-            border-top-color: #ffce00;
-            border-radius: 50%;
-            animation: loader-spin 0.8s linear infinite;
+        .status-text {
+            margin: 0;
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            line-height: 1.2;
+            font-weight: 800;
+            color: #1d1b2a;
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.25);
         }
 
-        @keyframes loader-spin {
-            to {
-                transform: rotate(360deg);
-            }
+        .amount-text {
+            margin-top: 18px;
+            font-size: clamp(1.1rem, 2vw, 1.6rem);
+            font-weight: 700;
+            color: #1c1d2f;
         }
     </style>
 </head>
 
 <body>
 
-<h2>Payment Status</h2>
-
-<p>Order ID: <span class="order-id" id="orderId">-</span></p>
-
-<button onclick="fetchOrderStatus()">
-    Refresh Status
-</button>
-
-<h3>Response</h3>
-
-<pre id="response"></pre>
-
-<div class="loader-overlay" id="loaderOverlay">
-    <div class="loader-spinner"></div>
+<div class="status-box">
+    <h1 class="status-text" id="statusText">Payment Status</h1>
+    <div class="amount-text" id="amountText"></div>
 </div>
 
 <script>
 
-// Same bridge contract as index.html: the token is never injected on window,
-// it is minted per request by the native layer.
-function readWebInitToken() {
-    if (!window.nativeMessageService) return Promise.resolve("");
-    return window.nativeMessageService
-        .callAPI("GET_INIT_TOKEN", {})
-        .then(function (res) {
-            return (res && res.webInitToken) || "";
-        })
-        .catch(function () {
-            return "";
-        });
-}
-
-function getOrderIdFromUrl() {
+function getQueryParam(name) {
     const params = new URLSearchParams(window.location.search);
-    return params.get("oid") || "";
-}
+    const value = params.get(name);
 
-async function fetchOrderStatus() {
-
-    const orderId = getOrderIdFromUrl();
-
-    if (!orderId) {
-        document.getElementById("response").textContent =
-            "Missing oid query parameter";
-        return;
+    if (!value || value === "null" || value === "undefined") {
+        return "";
     }
 
-    const webinitToken = await readWebInitToken();
-
-    const loaderOverlay = document.getElementById("loaderOverlay");
-    loaderOverlay.classList.add("visible");
-
-    try {
-
-        const response = await fetch(
-            "/api/order-status",
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body: JSON.stringify({
-                    webinitToken: webinitToken,
-                    orderId: orderId
-                })
-            }
-        );
-
-        const data = await response.json();
-
-        document.getElementById("response").textContent =
-            JSON.stringify(data, null, 2);
-
-    } catch (error) {
-
-        document.getElementById("response").textContent =
-            error.toString();
-
-    } finally {
-        loaderOverlay.classList.remove("visible");
-    }
+    return value.trim();
 }
 
 window.addEventListener("DOMContentLoaded", function () {
-    const orderId = getOrderIdFromUrl();
-    document.getElementById("orderId").textContent = orderId || "-";
-    fetchOrderStatus();
+    const status = getQueryParam("status");
+    const amount = getQueryParam("amount");
+
+    const statusTextEl = document.getElementById("statusText");
+    const amountTextEl = document.getElementById("amountText");
+
+    statusTextEl.textContent = status || "Payment Status";
+
+    if (amount) {
+        amountTextEl.textContent = "Amount: " + amount;
+        amountTextEl.style.display = "block";
+    } else {
+        amountTextEl.textContent = "";
+        amountTextEl.style.display = "none";
+    }
 });
 
 </script>
