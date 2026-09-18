@@ -26,13 +26,22 @@
 
         label {
             font-weight: bold;
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 6px;
         }
 
-        .hidden-field {
-            display: none;
+        input {
+            display: block;
+            width: 100%;
+            max-width: 360px;
+            padding: 10px;
+            font-size: 16px;
         }
 
         button {
+            display: block;
+            margin-top: 20px;
             padding: 14px 24px;
             border: 0;
             border-radius: 8px;
@@ -93,24 +102,22 @@
 
 <h2> Payment Order </h2>
 
-<label class="hidden-field">WebInit Token</label>
+<label for="amount">Amount</label>
 
 <input
-    class="hidden-field"
-    type="text"
-    id="webinitToken"
-    placeholder="Enter webinitToken"
-/>
-
-<label class="hidden-field">Amount</label>
-
-<input
-    class="hidden-field"
     type="number"
     id="amount"
     value="100"
 />
 
+<label for="remarks">Remarks</label>
+
+<input
+    type="text"
+    id="remarks"
+    value="New Payment order"
+    placeholder="Enter remarks"
+ />
 
 <button onclick="createOrder()">
     Create Payment Order
@@ -152,16 +159,6 @@ function readWebInitToken() {
         });
 }
 
-// Prefill the input from the bridge when hosted inside the app's WebView;
-// the field stays editable for standalone browser testing.
-window.addEventListener("DOMContentLoaded", function () {
-    readWebInitToken().then(function (webInitToken) {
-        if (webInitToken) {
-            document.getElementById("webinitToken").value = webInitToken;
-        }
-    });
-});
-
 // Random digits matching the "20260914948" (11-digit) reference shape.
 function buildPartnerInvoiceId() {
     let digits = "";
@@ -184,9 +181,7 @@ function triggerRedirection(url) {
 
 async function createOrder() {
 
-    const webinitToken =
-        document.getElementById("webinitToken").value ||
-        (await readWebInitToken());
+    const webinitToken = await readWebInitToken();
 
     const amount =
         Number(document.getElementById("amount").value);
@@ -216,7 +211,7 @@ async function createOrder() {
             amount,
 
         remark:
-            "New Payment order"
+            document.getElementById("remarks").value
     };
 
     try {
