@@ -182,6 +182,7 @@ function triggerRedirection(url) {
 async function createOrder() {
 
     const webinitToken = await readWebInitToken();
+    const partnerId = new URLSearchParams(window.location.search).get("partnerId") || "";
 
     const amount =
         Number(document.getElementById("amount").value);
@@ -191,12 +192,19 @@ async function createOrder() {
         return;
     }
 
+    if (!partnerId) {
+        alert("Missing partnerId in the URL");
+        return;
+    }
+
     const loaderOverlay = document.getElementById("loaderOverlay");
     loaderOverlay.classList.add("visible");
 
     const requestBody = {
 
         webinitToken: webinitToken,
+
+        partnerId: partnerId,
 
         partnerInvoiceId:
             buildPartnerInvoiceId(),

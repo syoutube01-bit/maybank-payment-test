@@ -20,6 +20,7 @@ app.post("/api/create-order", async (req, res) => {
     try {
         const {
             webinitToken,
+            partnerId,
             partnerInvoiceId,
             partnerReferenceId,
             currency,
@@ -31,6 +32,13 @@ app.post("/api/create-order", async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "webinitToken is required"
+            });
+        }
+
+        if (!partnerId) {
+            return res.status(400).json({
+                success: false,
+                message: "partnerId is required"
             });
         }
 
@@ -50,7 +58,7 @@ app.post("/api/create-order", async (req, res) => {
                     "Content-Type": "application/json",
 
                     "x-mb-client-id":
-                        "mbb-mae-maybank-heart",
+                        partnerId,
 
                     "x-mb-e2e-id":
                         "346918df-af88-4b3a-95e3-273eebf30aea",
