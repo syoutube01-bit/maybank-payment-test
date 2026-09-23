@@ -49,32 +49,26 @@ app.post("/api/create-order", async (req, res) => {
             amount,
             remark
         };
+        console.log("Create orderRequest Body:", requestBody);
 
+        const requestHeaders = {
+            "Content-Type": "application/json",
+            "x-mb-client-id": partnerId,
+            "x-mb-e2e-id": "346918df-af88-4b3a-95e3-273eebf30aea",
+            "x-mb-env": "U",
+            "x-mb-timestamp": Date.now().toString(),
+            "dip-authorization": `bearer ${webinitToken}`
+        };
+
+        console.log("Maybank API Request Headers:", requestHeaders);
+        
         const response = await axios.post(
             "https://payments-npas.maybank.com.my/sit/payment-sdk/v1/orders",
             requestBody,
-            {
-                headers: {
-                    "Content-Type": "application/json",
-
-                    "x-mb-client-id":
-                        partnerId,
-
-                    "x-mb-e2e-id":
-                        "346918df-af88-4b3a-95e3-273eebf30aea",
-
-                    "x-mb-env":
-                        "U",
-
-                    "x-mb-timestamp":
-                        Date.now().toString(),
-
-                    "dip-authorization":
-                        `bearer ${webinitToken}`
-                }
-            }
+            { headers: requestHeaders }
         );
 
+        console.log("Maybank API Response:", response.data);
         return res.status(response.status).json({
             success: true,
             data: response.data
