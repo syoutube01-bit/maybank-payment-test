@@ -3,6 +3,8 @@ const axios = require("axios");
 const path = require("path");
 
 const app = express();
+const MAYBANK_API_BASE_URL = "https://payments-npas.maybank.com.my/sit/";
+const MAYBANK_CREATE_ORDER_PATH = "payment-sdk/v1/orders";
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -62,8 +64,13 @@ app.post("/api/create-order", async (req, res) => {
 
         console.log("Maybank API Request Headers:", requestHeaders);
         
+        const createOrderUrl = new URL(
+            MAYBANK_CREATE_ORDER_PATH,
+            MAYBANK_API_BASE_URL
+        ).toString();
+
         const response = await axios.post(
-            "https://payments-npas.maybank.com.my/sit/payment-sdk/v1/orders",
+            createOrderUrl,
             requestBody,
             { headers: requestHeaders }
         );
@@ -76,10 +83,16 @@ app.post("/api/create-order", async (req, res) => {
 
     } catch (error) {
 
-        console.error(
-            "Maybank API Error:",
-            error.response?.data || error.message
-        );
+        const maybankError = error.response?.data || error.message;
+        console.error("Maybank API Error:", maybankError);
+        console.error("Maybank API Request URL:", error.config?.url);
+
+        if (error.response?.headers?.location) {
+            console.error(
+                "Maybank API Redirect Location:",
+                error.response.headers.location
+            );
+        }
 
         return res.status(
             error.response?.status || 500
