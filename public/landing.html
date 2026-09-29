@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Maybank Payment Test</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #f2f5f7;
+            color: #263238;
+        }
+        main { width: min(100%, 400px); }
+        h1 { margin: 0 0 28px; font-size: 28px; color: #17324d; text-align: center; }
+        .actions { display: grid; gap: 12px; }
+        a {
+            display: block;
+            padding: 16px 20px;
+            border-radius: 8px;
+            background: #ffce00;
+            color: #17324d;
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 3px 8px rgba(23, 50, 77, 0.14);
+        }
+        a:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Microsite Dummy Site </h1>
+        <nav class="actions" aria-label="Payment actions">
+            <a id="merchantLink" href="/create-merchant">Create a Merchant</a>
+            <a id="orderLink" href="/create-order">Create Order</a>
+        </nav>
+    </main>
+    <script>
+        const query = window.location.search;
+        document.getElementById("merchantLink").search = query;
+        document.getElementById("orderLink").search = query;
+    </script>
+</body>
+</html>

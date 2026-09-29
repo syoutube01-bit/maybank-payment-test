@@ -9,6 +9,18 @@ const MAYBANK_CREATE_ORDER_PATH = "payment-sdk/v1/orders";
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "landing.html"));
+});
+
+app.get("/create-order", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/create-merchant", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "merchant.html"));
+});
+
 // Serve HTML
 app.use(express.static(path.join(__dirname, "public")));
 
