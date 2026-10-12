@@ -173,9 +173,9 @@ function triggerRedirection(url) {
     const deepLinkUrl = url.replace(/^https:\/\//, "m2ulife://");
     console.log("[Redirection] Opening deep link:", deepLinkUrl);
     try {
-        window.location.href = deepLinkUrl;
+        window.location.href = url;
     } catch (error) {
-        console.warn("[Redirection] Failed to open deep link URL:", deepLinkUrl, error);
+        console.warn("[Redirection] Failed to open deep link URL:", url, error);
     }
 }
 
