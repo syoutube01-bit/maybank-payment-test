@@ -170,25 +170,12 @@ function buildPartnerInvoiceId() {
 
 // Calls the platform-specific redirection URL returned by create-order on success.
 function triggerRedirection(url) {
-    if (typeof url !== "string" || !url.trim()) {
-        console.warn("[Redirection] Missing or invalid redirection URL");
-        return false;
-    }
-
-    const platform = detectNativePlatform();
-    // const redirectionUrl = platform === "ios"
-    //     ? url.trim().replace(/^https:\/\//i, "m2ulife://")
-    //     : url.trim();
-
-     const redirectionUrl = url.trim().replace(/^https:\/\//i, "m2ulife://");
-
+    const deepLinkUrl = url.replace(/^https:\/\//, "m2ulife://");
+    console.log("[Redirection] Opening deep link:", deepLinkUrl);
     try {
-        console.log("[Redirection] Opening URL:", redirectionUrl, "Platform:", platform);
-        window.location.href = redirectionUrl;
-        return true;
+        window.location.href = deepLinkUrl;
     } catch (error) {
-        console.warn("[Redirection] Failed to open URL:", redirectionUrl, error);
-        return false;
+        console.warn("[Redirection] Failed to open deep link URL:", deepLinkUrl, error);
     }
 }
 
