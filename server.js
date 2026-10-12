@@ -83,6 +83,7 @@ console.log("Maybank API FULL Response :", response);
 
     } catch (error) {
 
+        console.log("Rajan ERROR :", error);
         const maybankError = error.response?.data || error.message;
         console.error("Maybank API Error:", maybankError);
         console.error("Maybank API Request URL:", error.config?.url);
