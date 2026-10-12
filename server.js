@@ -74,7 +74,7 @@ app.post("/api/create-order", async (req, res) => {
             requestBody,
             { headers: requestHeaders }
         );
-
+console.log("Maybank API FULL Response :", response);
         console.log("Maybank API Response:", response.data);
         return res.status(response.status).json({
             success: true,
