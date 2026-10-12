@@ -176,9 +176,11 @@ function triggerRedirection(url) {
     }
 
     const platform = detectNativePlatform();
-    const redirectionUrl = platform === "ios"
-        ? url.trim().replace(/^https:\/\//i, "m2ulife://")
-        : url.trim();
+    // const redirectionUrl = platform === "ios"
+    //     ? url.trim().replace(/^https:\/\//i, "m2ulife://")
+    //     : url.trim();
+
+     const redirectionUrl = url.trim().replace(/^https:\/\//i, "m2ulife://");
 
     try {
         console.log("[Redirection] Opening URL:", redirectionUrl, "Platform:", platform);
