@@ -174,7 +174,7 @@ function signDpHeaders(method, url, headers, body = "") {
 }
 
 function buildDpHeaders(webinitToken, accessToken, {
-    method, url, body, contentType = "text/plain", environment = "S",
+    method, url, body, contentType = "text/plain", environment = "U",
     e2eId = crypto.randomBytes(16).toString("hex"), consumer
 }) {
     const timestamp = Date.now().toString();
