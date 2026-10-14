@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DP Landing Screen</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; min-height: 100vh; margin: 0; padding: 24px; box-sizing: border-box; background: #f5f5f5; }
+        .layout { display: flex; flex: 1; gap: 32px; }
+        .left { display: flex; flex-direction: column; align-items: flex-start; }
+        .right { flex: 1; padding: 16px; background: #fff; border-radius: 8px; }
+        h2 { margin-bottom: 24px; }
+        button { width: 320px; padding: 16px; margin: 8px 0; font-size: 16px; border: none; border-radius: 8px; background: #ffc20e; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>DP Landing Screen</h2>
+    <div class="layout">
+        <div class="left">
+            <button id="getTokenBtn">Get Token</button>
+            <button id="createOrderBtn">Create Order</button>
+            <button id="viewPartyBtn">View Party</button>
+            <button id="getByOrderRefBtn">Get Order by Order Reference Id</button>
+            <button id="getByInvoiceBtn">Get Order by Partner Invoice Id</button>
+        </div>
+        <div class="right">
+            <p>Some text goes here.</p>
+            <pre id="response" style="white-space: pre-wrap; word-break: break-all;"></pre>
+        </div>
+    </div>
+<script>
+const DP_ORDERS_URL = "/api/dp/create-order";
+let accessToken = "";
+const DP_CREATE_ORDER_BODY = {
+    "partnerInvoiceId": "INV20260714211",
+    "partnerReferenceId": "REF20260522",
+    "currency": "MYR",
+    "amount": 100,
+    "remark": "New Payment order"
+};
+
+
+function readWebInitToken() {
+    if (!window.nativeMessageService) return Promise.resolve("");
+    return window.nativeMessageService
+        .callAPI("GET_INIT_TOKEN", {})
+        .then(function (res) { return (res && res.webInitToken) || ""; })
+        .catch(function () { return ""; });
+}
+
+async function createOrder() {
+    const out = document.getElementById("response");
+    if (!accessToken) {
+        out.textContent = "Get Token is required before creating an order.";
+        return;
+    }
+    const webinitToken = await readWebInitToken();
+
+    out.textContent = "Loading...";
+    try {
+        const res = await fetch(DP_ORDERS_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain",
+                "x-webinit-token": webinitToken,
+                "x-access-token": accessToken
+            },
+            body: JSON.stringify(DP_CREATE_ORDER_BODY)
+        });
+        const text = await res.text();
+        out.textContent = "HTTP " + res.status + "\n" + text;
+    } catch (error) {
+        out.textContent = "Request failed: " + error.message;
+    }
+}
+
+async function viewParty() {
+    const out = document.getElementById("response");
+    if (!accessToken) {
+        out.textContent = "Get Token is required before viewing party details.";
+        return;
+    }
+    const webinitToken = await readWebInitToken();
+
+    out.textContent = "Loading...";
+    try {
+        const res = await fetch("/api/dp/view-party", {
+            method: "GET",
+            headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
+        });
+        const text = await res.text();
+        out.textContent = "HTTP " + res.status + "\n" + text;
+    } catch (error) {
+        out.textContent = "Request failed: " + error.message;
+    }
+}
+
+async function getOrderByRefId() {
+    const orderRefId = prompt("Enter Order Reference Id", "MBB393");
+    if (!orderRefId) return;
+
+    const out = document.getElementById("response");
+    if (!accessToken) {
+        out.textContent = "Get Token is required before querying an order.";
+        return;
+    }
+    const webinitToken = await readWebInitToken();
+
+    out.textContent = "Loading...";
+    try {
+        const res = await fetch("/api/dp/order-status?orderRefId=" + encodeURIComponent(orderRefId), {
+            method: "GET",
+            headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
+        });
+        const text = await res.text();
+        out.textContent = "HTTP " + res.status + "\n" + text;
+    } catch (error) {
+        out.textContent = "Request failed: " + error.message;
+    }
+}
+
+async function getOrderByInvoiceId() {
+    const invoiceId = prompt("Enter Partner Invoice Id", "INV20260914212");
+    if (!invoiceId) return;
+
+    const out = document.getElementById("response");
+    if (!accessToken) {
+        out.textContent = "Get Token is required before querying an order.";
+        return;
+    }
+    const webinitToken = await readWebInitToken();
+
+    out.textContent = "Loading...";
+    try {
+        const res = await fetch("/api/dp/order-by-invoice?invoiceId=" + encodeURIComponent(invoiceId), {
+            method: "GET",
+            headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
+        });
+        const text = await res.text();
+        out.textContent = "HTTP " + res.status + "\n" + text;
+    } catch (error) {
+        out.textContent = "Request failed: " + error.message;
+    }
+}
+
+async function getToken() {
+    const out = document.getElementById("response");
+    accessToken = "";
+    out.textContent = "Loading...";
+    try {
+        const res = await fetch("/api/dp/token", { method: "POST" });
+        const text = await res.text();
+        out.textContent = "HTTP " + res.status + "\n" + text;
+        if (res.ok) {
+            const data = JSON.parse(text);
+            const token = data.responseData?.access_token;
+            if (data.txnStatus?.code === "AOK200" && typeof token === "string" && token.trim()) {
+                accessToken = token;
+            }
+        }
+    } catch (error) {
+        out.textContent = "Request failed: " + error.message;
+    }
+}
+
+document.getElementById("getTokenBtn").addEventListener("click", getToken);
+document.getElementById("createOrderBtn").addEventListener("click", createOrder);
+document.getElementById("viewPartyBtn").addEventListener("click", viewParty);
+document.getElementById("getByOrderRefBtn").addEventListener("click", getOrderByRefId);
+document.getElementById("getByInvoiceBtn").addEventListener("click", getOrderByInvoiceId);
+</script>
+</body>
+</html>
