@@ -5,12 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DP Landing Screen</title>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; min-height: 100vh; margin: 0; padding: 24px; box-sizing: border-box; background: #f5f5f5; }
-        .layout { display: flex; flex: 1; gap: 32px; }
-        .left { display: flex; flex-direction: column; align-items: flex-start; }
-        .right { flex: 1; padding: 16px; background: #fff; border-radius: 8px; }
-        h2 { margin-bottom: 24px; }
-        button { width: 320px; padding: 16px; margin: 8px 0; font-size: 16px; border: none; border-radius: 8px; background: #ffc20e; cursor: pointer; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; min-height: 100vh; min-height: 100svh; margin: 0 auto; max-width: 1280px; padding: 24px; background: #f5f5f5; }
+        .layout { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 32px; align-items: start; }
+        .left { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        .right { min-width: 0; padding: 16px; background: #fff; border-radius: 8px; }
+        h2 { margin: 0 0 24px; font-size: 24px; overflow-wrap: anywhere; }
+        h3 { margin: 0 0 16px; font-size: 18px; }
+        button { width: 100%; min-height: 48px; padding: 16px; font-size: 16px; line-height: 1.4; font-family: inherit; overflow-wrap: anywhere; border: none; border-radius: 8px; background: #ffc20e; cursor: pointer; }
+        button:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
+        #response { margin: 0; min-height: 120px; max-width: 100%; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+        @media (max-width: 768px) {
+            body { padding: 20px 16px; }
+            .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+            h2 { font-size: 22px; margin-bottom: 20px; }
+            button { padding: 14px 16px; }
+        }
     </style>
 </head>
 <body>
@@ -24,8 +34,8 @@
             <button id="getByInvoiceBtn">Get Order by Partner Invoice Id</button>
         </div>
         <div class="right">
-            <p>Some text goes here.</p>
-            <pre id="response" style="white-space: pre-wrap; word-break: break-all;"></pre>
+            <h3>Response</h3>
+            <pre id="response" aria-live="polite"></pre>
         </div>
     </div>
 <script>
