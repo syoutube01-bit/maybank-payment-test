@@ -312,7 +312,6 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
         const response = await dpRequest("DP create order", "post", DP_ORDERS_URL,
             webinitToken, {
                 body: encryptedBody,
-                signingBody: plaintextBody,
                 accessToken
             });
         return sendDpResponse(res, response);
