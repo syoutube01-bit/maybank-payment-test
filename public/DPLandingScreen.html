@@ -56,6 +56,22 @@ function buildPartnerInvoiceId() {
     return "INV" + digits;
 }
 
+function detectNativePlatform() {
+    const platform = (navigator.platform || "").toLowerCase();
+    if (/iphone|ipad|ipod|mac/.test(platform)) return "ios";
+    if (/linux|android/.test(platform)) return "android";
+    return "unknown";
+}
+
+function triggerRedirection(url) {
+    const deepLinkUrl = url.replace(/^https:\/\//, "m2ulife://");
+    try {
+        window.location.href = deepLinkUrl;
+    } catch (error) {
+        console.warn("[Redirection] Failed to open deep link URL:", deepLinkUrl, error);
+    }
+}
+
 function readWebInitToken() {
     if (!window.nativeMessageService) return Promise.resolve("");
     return window.nativeMessageService
@@ -88,6 +104,27 @@ async function createOrder() {
         });
         const text = await res.text();
         out.textContent = "HTTP " + res.status + "\n" + text;
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            return;
+        }
+
+        if (res.ok && data.statusCode === "0000") {
+            const platform = detectNativePlatform();
+            const redirection = data.redirection;
+            const redirectionUrl = redirection
+                ? platform === "ios" ? redirection.ios : redirection.android
+                : "";
+
+            if (redirectionUrl) {
+                triggerRedirection(redirectionUrl);
+            } else {
+                console.warn("[Redirection] No redirection URL for platform:", platform);
+            }
+        }
     } catch (error) {
         out.textContent = "Request failed: " + error.message;
     }
