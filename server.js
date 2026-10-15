@@ -306,7 +306,10 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
     const validationError = validateDpOrder(orderPayload);
     if (validationError) return res.status(400).send(validationError);
     try {
-        const webinitToken = req.get("x-webinit-token") || "";
+        const webinitToken = (req.get("x-webinit-token") || "").trim();
+        if (!webinitToken.trim()) {
+            return res.status(400).send("webinitToken is required for Create Order.");
+        }
         const plaintextBody = JSON.stringify(orderPayload);
         const encryptedBody = await encryptDpBody(plaintextBody);
         const response = await dpRequest("DP create order", "post", DP_ORDERS_URL,
