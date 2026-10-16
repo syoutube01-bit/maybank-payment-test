@@ -81,6 +81,7 @@ app.post("/api/create-order", async (req, res) => {
         console.log("Maybank API Request URL:", createOrderUrl);
 
         const response = await axios.post(
+            createOrderUrl,
             requestBody,
             { headers: requestHeaders }
         );
