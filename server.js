@@ -355,13 +355,13 @@ app.get("/api/dp/order-status", dpRateLimiter(), requireDpAccessToken, async (re
 
 // DP order lookup by partner invoice id
 app.get("/api/dp/order-by-invoice", dpRateLimiter(), requireDpAccessToken, async (req, res) => {
-    const invoiceId = req.query.invoiceId ?? req.query.partnerInvoiceId;
-    if (typeof invoiceId !== "string" || !invoiceId) {
-        return res.status(400).send("invoiceId is required");
+    const partnerInvoiceId = req.query.partnerInvoiceId ?? req.query.invoiceId;
+    if (typeof partnerInvoiceId !== "string" || !partnerInvoiceId) {
+        return res.status(400).send("partnerInvoiceId is required");
     }
     try {
         const response = await dpRequest("DP order by invoice", "get", DP_ORDER_BY_INVOICE_URL,
-            req.get("x-webinit-token") || "", { params: { invoiceId }, accessToken: req.get("x-access-token") });
+            req.get("x-webinit-token") || "", { params: { partnerInvoiceId }, accessToken: req.get("x-access-token") });
         return sendDpResponse(res, response);
     } catch (error) {
         return sendDpError(res, "DP order by invoice", error);

@@ -176,8 +176,8 @@ async function getOrderByRefId() {
 }
 
 async function getOrderByInvoiceId() {
-    const invoiceId = prompt("Enter Partner Invoice Id", "INV20260914212");
-    if (!invoiceId) return;
+    const partnerInvoiceId = prompt("Enter Partner Invoice Id", "INV20260914212");
+    if (!partnerInvoiceId) return;
 
     const out = document.getElementById("response");
     if (!accessToken) {
@@ -188,7 +188,7 @@ async function getOrderByInvoiceId() {
 
     out.textContent = "Loading...";
     try {
-        const res = await fetch("/api/dp/order-by-invoice?invoiceId=" + encodeURIComponent(invoiceId), {
+        const res = await fetch("/api/dp/order-by-invoice?partnerInvoiceId=" + encodeURIComponent(partnerInvoiceId), {
             method: "GET",
             headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
         });
