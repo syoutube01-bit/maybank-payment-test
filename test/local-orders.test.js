@@ -263,6 +263,7 @@ test("payment status updates persist all supplied partner and completion fields"
         ParnerRefNumber: "PRN202607170001",
         statusDescription: "Payment completed successfully",
         completedDateTime: "2026-07-17T07:29:55Z",
-        PaymentStatusCode: "0000"
+        PaymentStatusCode: "0000",
+        digitalId: null
     });
 });

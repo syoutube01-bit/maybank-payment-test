@@ -108,12 +108,14 @@ test("create order saves the returned order details in the local database", asyn
     };
     const { handler, dbPath, cleanup } = loadCreateOrderRoute(undefined, orderResponse);
     const response = createResponse();
-    await handler({ body: { ...order } }, response);
+    const webinitToken = "eyJhbGciOiJSUzI1NiJ9." +
+        Buffer.from(JSON.stringify({ digitalID: "user-768" })).toString("base64url") + ".sig";
+    await handler({ body: { ...order, webinitToken } }, response);
 
     const db = new DatabaseSync(dbPath);
     const savedOrder = db.prepare("SELECT * FROM orders WHERE orderRefId = ?").get("MBB768");
     db.close();
-    assert.deepEqual({ ...savedOrder }, orderResponse);
+    assert.deepEqual({ ...savedOrder }, { ...orderResponse, digitalId: "user-768" });
     cleanup();
 });
 

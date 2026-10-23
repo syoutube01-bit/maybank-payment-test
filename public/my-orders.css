@@ -1,0 +1,52 @@
+.my-orders {
+    margin-top: 32px;
+    color: inherit;
+}
+.my-orders h2 {
+    margin: 0 0 12px;
+    font-size: 20px;
+}
+.my-orders-message {
+    margin: 0;
+    opacity: 0.8;
+    overflow-wrap: anywhere;
+}
+.my-orders-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.my-order {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    color: inherit;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.7);
+}
+.my-order:hover { background: rgba(255, 255, 255, 0.95); }
+.my-order:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+}
+.my-order-id { font-weight: 700; overflow-wrap: anywhere; }
+.my-order-status {
+    justify-self: end;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #fff3cd;
+    color: #664d03;
+}
+.my-order-status[data-status="SUCCESS"],
+.my-order-status[data-status="PAID"] { background: #d1e7dd; color: #0f5132; }
+.my-order-status[data-status="FAILED"],
+.my-order-status[data-status="CANCELLED"] { background: #f8d7da; color: #842029; }
+.my-order-amount { font-size: 14px; }
+.my-order-date { justify-self: end; font-size: 13px; opacity: 0.75; }

@@ -3,6 +3,7 @@ const axios = require("axios");
 const path = require("path");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
+const { Buffer } = require("node:buffer");
 const { DatabaseSync } = require("node:sqlite");
 const { CompactSign, CompactEncrypt, compactDecrypt, compactVerify } = require("jose");
 const { rateLimit } = require("express-rate-limit");
@@ -31,7 +32,8 @@ function getOrderDatabase() {
                 ParnerRefNumber TEXT,
                 statusDescription TEXT,
                 completedDateTime TEXT,
-                PaymentStatusCode TEXT
+                PaymentStatusCode TEXT,
+                digitalId TEXT
             )
         `);
         const existingColumns = new Set(
@@ -39,14 +41,53 @@ function getOrderDatabase() {
         );
         for (const column of [
             "partnerCode", "partnerName", "PartnerInvoice", "ParnerRefNumber",
-            "statusDescription", "completedDateTime", "PaymentStatusCode"
+            "statusDescription", "completedDateTime", "PaymentStatusCode", "digitalId"
         ]) {
             if (!existingColumns.has(column)) {
                 orderDatabase.exec(`ALTER TABLE orders ADD COLUMN ${column} TEXT`);
             }
         }
+        orderDatabase.exec(
+            "CREATE INDEX IF NOT EXISTS idx_orders_digitalId ON orders (digitalId, createdAt)"
+        );
     }
     return orderDatabase;
+}
+
+// Decodes (without verifying the signature) the digitalID claim from the MAE web-init JWT.
+// Throws when the token is malformed, expired or has no digitalID.
+function getDigitalIdFromWebInitToken(webinitToken) {
+    const token = typeof webinitToken === "string"
+        ? webinitToken.trim().replace(/^bearer\s+/i, "")
+        : "";
+    const parts = token.split(".");
+    if (parts.length !== 3 || parts.some(part => !part)) {
+        throw new Error("Web-init token is not a signed JWT.");
+    }
+    let claims;
+    try {
+        claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    } catch {
+        throw new Error("Web-init JWT payload is not valid JSON.");
+    }
+    if (typeof claims?.exp === "number" && claims.exp * 1000 <= Date.now()) {
+        throw new Error("Web-init JWT has expired.");
+    }
+    if (typeof claims?.digitalID !== "string" || !claims.digitalID.trim()) {
+        throw new Error("Web-init JWT has no valid digitalID claim.");
+    }
+    const digitalId = claims.digitalID.trim();
+    console.log("Web-init JWT digitalID:", digitalId);
+    return digitalId;
+}
+
+function tryGetDigitalId(webinitToken, label) {
+    try {
+        return getDigitalIdFromWebInitToken(webinitToken);
+    } catch (error) {
+        console.error(`[${label}] Order will not be linked to a user: ${error.message}`);
+        return null;
+    }
 }
 
 const MAYBANK_API_BASE_URL = "https://payments-npas.maybank.com.my/sit/";
@@ -60,7 +101,7 @@ const DP_TOKEN_URL = "https://staging.api.maybank.com/api/oauth2/v8/clientcred/t
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-function persistOrderResponse(responseData, requestPayload = {}) {
+function persistOrderResponse(responseData, requestPayload = {}, digitalId = null) {
     let order = responseData;
     if (typeof order === "string") {
         order = JSON.parse(order);
@@ -106,9 +147,10 @@ function persistOrderResponse(responseData, requestPayload = {}) {
             orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
             createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
             PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
-            PaymentStatusCode
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            PaymentStatusCode, digitalId
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(orderRefId) DO UPDATE SET
+            digitalId = COALESCE(excluded.digitalId, digitalId),
             partnerReferenceId = excluded.partnerReferenceId,
             partnerInvoiceId = excluded.partnerInvoiceId,
             currency = excluded.currency,
@@ -138,7 +180,8 @@ function persistOrderResponse(responseData, requestPayload = {}) {
         storedOrder.ParnerRefNumber,
         storedOrder.statusDescription,
         storedOrder.completedDateTime,
-        storedOrder.PaymentStatusCode
+        storedOrder.PaymentStatusCode,
+        digitalId
     );
 }
 
@@ -207,6 +250,31 @@ app.get("/api/local/orders/:orderRefId", (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Unable to load order from the local database"
+        });
+    }
+});
+
+// Orders of the logged-in microsite user, identified by the digitalID in the web-init JWT.
+app.get("/api/my/orders", (req, res) => {
+    let digitalId;
+    try {
+        digitalId = getDigitalIdFromWebInitToken(req.get("x-webinit-token"));
+    } catch (error) {
+        return res.status(401).json({ success: false, message: error.message });
+    }
+    try {
+        const orders = getOrderDatabase().prepare(`
+            SELECT orderRefId, paymentStatus, amount, currency, createdAt,
+                partnerName, partnerInvoiceId
+            FROM orders WHERE digitalId = ?
+            ORDER BY createdAt DESC, orderRefId DESC
+        `).all(digitalId);
+        return res.json({ success: true, data: orders });
+    } catch (error) {
+        console.error("Unable to read user orders:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load your orders"
         });
     }
 });
@@ -402,7 +470,8 @@ app.post("/api/create-order", async (req, res) => {
         );
 console.log("Maybank API FULL Response :", response);
         console.log("Maybank API Response:", response.data);
-        persistOrderResponse(response.data, requestBody);
+        persistOrderResponse(response.data, requestBody,
+            tryGetDigitalId(webinitToken, "Create order"));
         return res.status(response.status).json({
             success: true,
             data: response.data
@@ -634,7 +703,8 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
                 body: encryptedBody,
                 accessToken
             });
-        persistOrderResponse(response.data, orderPayload);
+        persistOrderResponse(response.data, orderPayload,
+            tryGetDigitalId(webinitToken, "DP create order"));
         return sendDpResponse(res, response);
     } catch (error) {
         return sendDpError(res, "DP create order", error);

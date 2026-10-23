@@ -241,6 +241,7 @@
             .agreement { white-space: normal; }
         }
     </style>
+    <link rel="stylesheet" href="/my-orders.css">
 </head>
 <body>
     <main class="page">
@@ -317,6 +318,11 @@
 
             <button class="buy-button" id="buyButton" type="button" disabled>Buy</button>
             <p id="paymentStatus" role="status" style="overflow-wrap: anywhere;"></p>
+            <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
+                <h2 id="myOrdersHeading">My Orders</h2>
+                <p class="my-orders-message" role="status" aria-live="polite"></p>
+                <ul class="my-orders-list"></ul>
+            </section>
         </section>
     </main>
     <script src="/payment-session.js"></script>
@@ -437,5 +443,6 @@
             }
         });
     </script>
+    <script src="/my-orders.js"></script>
 </body>
 </html>
