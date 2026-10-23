@@ -2,10 +2,35 @@
     margin-top: 32px;
     color: inherit;
 }
-.my-orders h2 {
-    margin: 0 0 12px;
+.my-orders-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.my-orders .my-orders-header h2 {
+    margin: 0;
     font-size: 20px;
 }
+.my-orders-refresh {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 8px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.my-orders-refresh:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+.my-orders-refresh:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 2px;
+}
+.my-orders-refresh:disabled { opacity: 0.5; cursor: wait; }
 .my-orders-message {
     margin: 0;
     opacity: 0.8;

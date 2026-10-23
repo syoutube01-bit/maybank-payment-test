@@ -35,18 +35,26 @@
         list.replaceChildren(rows);
     }
 
+    let isLoading = false;
+
     async function loadMyOrders() {
         const section = document.getElementById("myOrders");
-        if (!section) return;
+        if (!section || isLoading) return;
         const message = section.querySelector(".my-orders-message");
         const list = section.querySelector(".my-orders-list");
+        const refreshButton = section.querySelector(".my-orders-refresh");
+        isLoading = true;
+        refreshButton.disabled = true;
+        section.setAttribute("aria-busy", "true");
         section.hidden = false;
+        message.hidden = false;
         message.textContent = "Loading your orders...";
         list.replaceChildren();
         try {
             const webInitToken = await window.paymentSession.getWebInitToken();
             const res = await fetch("/api/my/orders", {
                 method: "GET",
+                cache: "no-store",
                 headers: { "x-webinit-token": webInitToken }
             });
             const data = JSON.parse(await res.text());
@@ -59,13 +67,23 @@
         } catch (error) {
             message.hidden = false;
             message.textContent = "Unable to load your orders: " + error.message;
+        } finally {
+            isLoading = false;
+            refreshButton.disabled = false;
+            section.setAttribute("aria-busy", "false");
         }
+    }
+
+    function initializeMyOrders() {
+        const refreshButton = document.querySelector("#myOrders .my-orders-refresh");
+        if (refreshButton) refreshButton.addEventListener("click", loadMyOrders);
+        return loadMyOrders();
     }
 
     window.myOrders = { load: loadMyOrders };
     if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", loadMyOrders);
+        document.addEventListener("DOMContentLoaded", initializeMyOrders);
     } else {
-        loadMyOrders();
+        initializeMyOrders();
     }
 })();

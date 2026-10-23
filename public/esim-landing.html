@@ -342,7 +342,14 @@
             </button>
             <p id="paymentStatus" role="status" aria-live="polite"></p>
             <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
-                <h2 id="myOrdersHeading">My Orders</h2>
+                <div class="my-orders-header">
+                    <h2 id="myOrdersHeading">My Orders</h2>
+                    <button class="my-orders-refresh" type="button" aria-label="Refresh my orders" title="Refresh my orders">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9"/>
+                        </svg>
+                    </button>
+                </div>
                 <p class="my-orders-message" role="status" aria-live="polite"></p>
                 <ul class="my-orders-list"></ul>
             </section>
