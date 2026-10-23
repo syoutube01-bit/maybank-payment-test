@@ -15,6 +15,13 @@
         button { width: 100%; min-height: 48px; padding: 16px; font-size: 16px; line-height: 1.4; font-family: inherit; overflow-wrap: anywhere; border: none; border-radius: 8px; background: #ffc20e; cursor: pointer; }
         button:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
         #response { margin: 0; min-height: 120px; max-width: 100%; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .db-results { margin-top: 24px; }
+        .table-scroll { max-height: 400px; max-width: 100%; overflow: auto; border: 1px solid #ddd; }
+        .table-scroll:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+        th, td { padding: 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid #ddd; }
+        th { position: sticky; top: 0; background: #f5f5f5; }
+        caption { padding: 12px; text-align: left; font-weight: bold; }
         @media (max-width: 768px) {
             body { padding: 20px 16px; }
             .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
@@ -27,20 +34,43 @@
     <h2>DP Landing Screen</h2>
     <div class="layout">
         <div class="left">
-            <button id="getTokenBtn">Get Token</button>
             <button id="createOrderBtn">Create Order</button>
             <button id="viewPartyBtn">View Party</button>
             <button id="getByOrderRefBtn">Get Order by Order Reference Id</button>
             <button id="getByInvoiceBtn">Get Order by Partner Invoice Id</button>
+            <button id="getFromDbBtn">Get from DB</button>
         </div>
         <div class="right">
             <h3>Response</h3>
             <pre id="response" aria-live="polite"></pre>
+            <section class="db-results" id="dbResults" hidden aria-labelledby="dbHeading">
+                <h3 id="dbHeading">Saved Orders</h3>
+                <p id="dbStatus" role="status"></p>
+                <div class="table-scroll" tabindex="0" role="region" aria-label="Saved orders table" hidden id="dbTableContainer">
+                    <table>
+                        <caption>Orders stored in the local database (newest first)</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Order Reference Id</th>
+                                <th scope="col">Partner Reference Id</th>
+                                <th scope="col">Partner Invoice Id</th>
+                                <th scope="col">Currency</th>
+                                <th scope="col">Amount (cents)</th>
+                                <th scope="col">Created At</th>
+                                <th scope="col">Payment Status</th>
+                                <th scope="col">Order Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dbOrdersBody"></tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     </div>
 <script>
 const DP_ORDERS_URL = "/api/dp/create-order";
 let accessToken = "";
+let tokenRequest = null;
 const DP_CREATE_ORDER_BODY = {
     "partnerReferenceId": "REF20260522",
     "currency": "MYR",
@@ -82,14 +112,10 @@ function readWebInitToken() {
 
 async function createOrder() {
     const out = document.getElementById("response");
-    if (!accessToken) {
-        out.textContent = "Get Token is required before creating an order.";
-        return;
-    }
-    const webinitToken = await readWebInitToken();
-
     out.textContent = "Loading...";
     try {
+        await getToken();
+        const webinitToken = await readWebInitToken();
         const res = await fetch(DP_ORDERS_URL, {
             method: "POST",
             headers: {
@@ -132,14 +158,10 @@ async function createOrder() {
 
 async function viewParty() {
     const out = document.getElementById("response");
-    if (!accessToken) {
-        out.textContent = "Get Token is required before viewing party details.";
-        return;
-    }
-    const webinitToken = await readWebInitToken();
-
     out.textContent = "Loading...";
     try {
+        await getToken();
+        const webinitToken = await readWebInitToken();
         const res = await fetch("/api/dp/view-party", {
             method: "GET",
             headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
@@ -156,14 +178,10 @@ async function getOrderByRefId() {
     if (!orderRefId) return;
 
     const out = document.getElementById("response");
-    if (!accessToken) {
-        out.textContent = "Get Token is required before querying an order.";
-        return;
-    }
-    const webinitToken = await readWebInitToken();
-
     out.textContent = "Loading...";
     try {
+        await getToken();
+        const webinitToken = await readWebInitToken();
         const res = await fetch("/api/dp/order-status?orderRefId=" + encodeURIComponent(orderRefId), {
             method: "GET",
             headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
@@ -180,14 +198,10 @@ async function getOrderByInvoiceId() {
     if (!partnerInvoiceId) return;
 
     const out = document.getElementById("response");
-    if (!accessToken) {
-        out.textContent = "Get Token is required before querying an order.";
-        return;
-    }
-    const webinitToken = await readWebInitToken();
-
     out.textContent = "Loading...";
     try {
+        await getToken();
+        const webinitToken = await readWebInitToken();
         const res = await fetch("/api/dp/order-by-invoice?partnerInvoiceId=" + encodeURIComponent(partnerInvoiceId), {
             method: "GET",
             headers: { "x-webinit-token": webinitToken, "x-access-token": accessToken }
@@ -199,31 +213,79 @@ async function getOrderByInvoiceId() {
     }
 }
 
-async function getToken() {
-    const out = document.getElementById("response");
-    accessToken = "";
-    out.textContent = "Loading...";
+async function getFromDb() {
+    const button = document.getElementById("getFromDbBtn");
+    const status = document.getElementById("dbStatus");
+    const container = document.getElementById("dbTableContainer");
+    const body = document.getElementById("dbOrdersBody");
+    document.getElementById("dbResults").hidden = false;
+    button.disabled = true;
+    status.textContent = "Loading saved orders...";
+    container.hidden = true;
+    body.replaceChildren();
     try {
-        const res = await fetch("/api/dp/token", { method: "POST" });
+        const res = await fetch("/api/local/orders", { method: "GET" });
         const text = await res.text();
-        out.textContent = "HTTP " + res.status + "\n" + text;
-        if (res.ok) {
-            const data = JSON.parse(text);
-            const token = data.responseData?.access_token;
-            if (data.txnStatus?.code === "AOK200" && typeof token === "string" && token.trim()) {
-                accessToken = token;
-            }
+        if (!res.ok) {
+            throw new Error("HTTP " + res.status + "\n" + text);
         }
+        const data = JSON.parse(text);
+        if (!data || data.success !== true || !Array.isArray(data.data)) {
+            throw new Error("Invalid orders response");
+        }
+        const columns = [
+            "orderRefId", "partnerReferenceId", "partnerInvoiceId", "currency",
+            "amount", "createdAt", "paymentStatus", "orderStatus"
+        ];
+        const rows = document.createDocumentFragment();
+        for (const order of data.data) {
+            const row = document.createElement("tr");
+            for (const column of columns) {
+                const cell = document.createElement("td");
+                cell.textContent = order[column] ?? "";
+                row.appendChild(cell);
+            }
+            rows.appendChild(row);
+        }
+        body.appendChild(rows);
+        container.hidden = data.data.length === 0;
+        status.textContent = data.data.length === 0
+            ? "No saved orders found."
+            : data.data.length + " saved order(s). Scroll horizontally or vertically to see all data.";
     } catch (error) {
-        out.textContent = "Request failed: " + error.message;
+        status.textContent = "Unable to load saved orders: " + error.message;
+    } finally {
+        button.disabled = false;
     }
 }
 
-document.getElementById("getTokenBtn").addEventListener("click", getToken);
+function getToken() {
+    if (accessToken) return Promise.resolve(accessToken);
+    if (tokenRequest) return tokenRequest;
+
+    tokenRequest = fetch("/api/dp/token", { method: "POST" }).then(async res => {
+        const text = await res.text();
+        if (!res.ok) {
+            throw new Error("Get Token: HTTP " + res.status + "\n" + text);
+        }
+        const data = JSON.parse(text);
+        const token = data?.responseData?.access_token;
+        if (data?.txnStatus?.code !== "AOK200" || typeof token !== "string" || !token.trim()) {
+            throw new Error("Get Token returned no valid access token: " + text);
+        }
+        accessToken = token;
+        return token;
+    }).finally(() => {
+        tokenRequest = null;
+    });
+    return tokenRequest;
+}
+
 document.getElementById("createOrderBtn").addEventListener("click", createOrder);
 document.getElementById("viewPartyBtn").addEventListener("click", viewParty);
 document.getElementById("getByOrderRefBtn").addEventListener("click", getOrderByRefId);
 document.getElementById("getByInvoiceBtn").addEventListener("click", getOrderByInvoiceId);
+document.getElementById("getFromDbBtn").addEventListener("click", getFromDb);
 </script>
 </body>
 </html>

@@ -86,5 +86,8 @@ test("each partner page has a distinct landing and returns to the API test scree
         assert.match(html, new RegExp(`<h1>${heading}</h1>`));
         assert.match(html, /class="api-test"[^>]*>API test<\/a>/);
         assert.match(html, /href \+= window\.location\.search/);
+        if (page === "ctos-landing.html") {
+            assert.doesNotMatch(html, /width:\s*1px;[\s\S]*?clip:\s*rect\(0,\s*0,\s*0,\s*0\)/);
+        }
     }
 });

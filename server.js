@@ -3,10 +3,34 @@ const axios = require("axios");
 const path = require("path");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
+const { DatabaseSync } = require("node:sqlite");
 const { CompactSign, CompactEncrypt, compactDecrypt, compactVerify } = require("jose");
 const { rateLimit } = require("express-rate-limit");
 
 const app = express();
+const databasePath = process.env.LOCAL_DB_PATH || path.join(__dirname, "data", "orders.sqlite");
+let orderDatabase;
+
+function getOrderDatabase() {
+    if (!orderDatabase) {
+        fs.mkdirSync(path.dirname(databasePath), { recursive: true });
+        orderDatabase = new DatabaseSync(databasePath);
+        orderDatabase.exec(`
+            CREATE TABLE IF NOT EXISTS orders (
+                orderRefId TEXT PRIMARY KEY,
+                partnerReferenceId TEXT NOT NULL,
+                partnerInvoiceId TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                createdAt TEXT NOT NULL,
+                paymentStatus TEXT NOT NULL,
+                orderStatus TEXT NOT NULL
+            )
+        `);
+    }
+    return orderDatabase;
+}
+
 const MAYBANK_API_BASE_URL = "https://payments-npas.maybank.com.my/sit/";
 const MAYBANK_CREATE_ORDER_PATH = "payment-sdk/v1/orders";
 const DP_ORDERS_URL = "https://staging.api.maybank.com/api/my/microsite/v1/orders";
@@ -17,6 +41,58 @@ const DP_TOKEN_URL = "https://staging.api.maybank.com/api/oauth2/v8/clientcred/t
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+function persistOrderResponse(responseData, requestPayload = {}) {
+    let order = responseData;
+    if (typeof order === "string") {
+        order = JSON.parse(order);
+    }
+    if (!order || typeof order !== "object" || Array.isArray(order)) {
+        throw new Error("Create order response must be a JSON object to save locally.");
+    }
+
+    const storedOrder = {
+        orderRefId: order.orderRefId || order.orderId,
+        partnerReferenceId: order.partnerReferenceId || requestPayload.partnerReferenceId,
+        partnerInvoiceId: order.partnerInvoiceId || requestPayload.partnerInvoiceId,
+        currency: order.currency || requestPayload.currency,
+        amount: order.amount ?? requestPayload.amount,
+        createdAt: order.createdAt || new Date().toISOString(),
+        paymentStatus: order.paymentStatus || "PENDING",
+        orderStatus: order.orderStatus || "CREATED"
+    };
+    if (typeof storedOrder.orderRefId !== "string" || !storedOrder.orderRefId ||
+        typeof storedOrder.partnerReferenceId !== "string" || !storedOrder.partnerReferenceId ||
+        typeof storedOrder.partnerInvoiceId !== "string" || !storedOrder.partnerInvoiceId ||
+        typeof storedOrder.currency !== "string" || !storedOrder.currency ||
+        !Number.isSafeInteger(storedOrder.amount) || storedOrder.amount <= 0) {
+        throw new Error("Create order response is missing required order details for local storage.");
+    }
+
+    getOrderDatabase().prepare(`
+        INSERT INTO orders (
+            orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
+            createdAt, paymentStatus, orderStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(orderRefId) DO UPDATE SET
+            partnerReferenceId = excluded.partnerReferenceId,
+            partnerInvoiceId = excluded.partnerInvoiceId,
+            currency = excluded.currency,
+            amount = excluded.amount,
+            createdAt = excluded.createdAt,
+            paymentStatus = excluded.paymentStatus,
+            orderStatus = excluded.orderStatus
+    `).run(
+        storedOrder.orderRefId,
+        storedOrder.partnerReferenceId,
+        storedOrder.partnerInvoiceId,
+        storedOrder.currency,
+        storedOrder.amount,
+        storedOrder.createdAt,
+        storedOrder.paymentStatus,
+        storedOrder.orderStatus
+    );
+}
 
 const partnerLandingPages = {
     "mbb-mae-easybook": "easybook-landing.html",
@@ -43,6 +119,24 @@ app.use(express.static(path.join(__dirname, "public")));
 // Payment status screen (deep link target: /paymentstatus?oid=MBB232)
 app.get("/paymentstatus", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "paymentstatus.html"));
+});
+
+app.get("/api/local/orders", (req, res) => {
+    try {
+        const orders = getOrderDatabase().prepare(`
+            SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
+                createdAt, paymentStatus, orderStatus
+            FROM orders
+            ORDER BY createdAt DESC, orderRefId DESC
+        `).all();
+        return res.json({ success: true, data: orders });
+    } catch (error) {
+        console.error("Unable to read local orders:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load orders from the local database"
+        });
+    }
 });
 
 // Create Maybank payment order
@@ -106,6 +200,7 @@ app.post("/api/create-order", async (req, res) => {
         );
 console.log("Maybank API FULL Response :", response);
         console.log("Maybank API Response:", response.data);
+        persistOrderResponse(response.data, requestBody);
         return res.status(response.status).json({
             success: true,
             data: response.data
@@ -337,6 +432,7 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
                 body: encryptedBody,
                 accessToken
             });
+        persistOrderResponse(response.data, orderPayload);
         return sendDpResponse(res, response);
     } catch (error) {
         return sendDpError(res, "DP create order", error);

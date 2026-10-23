@@ -26,24 +26,24 @@
             background: #fff;
         }
         .api-test {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
+            display: flex;
+            width: fit-content;
+            min-height: 40px;
+            align-items: center;
+            justify-content: center;
+            margin: 0 0 4px auto;
+            padding: 0 14px;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            background: #007f89;
         }
+        .api-test:hover { background: #00666e; }
         .api-test:focus-visible {
-            z-index: 1;
-            top: 8px;
-            right: 8px;
-            width: auto;
-            height: auto;
-            padding: 8px 12px;
-            clip: auto;
-            color: #007f89;
-            background: #fff;
-            outline: 2px solid #007f89;
+            outline: 3px solid #17324d;
+            outline-offset: 3px;
         }
         .brand-row {
             display: flex;

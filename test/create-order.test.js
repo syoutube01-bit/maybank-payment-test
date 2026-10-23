@@ -1,14 +1,18 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
+const { DatabaseSync } = require("node:sqlite");
 const vm = require("node:vm");
 const { test } = require("node:test");
 
 const root = path.join(__dirname, "..");
 
-function loadCreateOrderRoute(upstreamError) {
+function loadCreateOrderRoute(upstreamError, responseData = { orderId: "test-order-id" }) {
     const routes = new Map();
     const requests = [];
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "maybank-order-test-"));
+    const dbPath = path.join(tempDir, "orders.sqlite");
     const app = {
         use() {},
         get() {},
@@ -23,7 +27,7 @@ function loadCreateOrderRoute(upstreamError) {
             requests.push({ url, body, config });
             new URL(url);
             if (upstreamError) throw upstreamError;
-            return { status: 201, data: { orderId: "test-order-id" } };
+            return { status: 201, data: responseData };
         }
     };
     const context = vm.createContext({
@@ -33,12 +37,17 @@ function loadCreateOrderRoute(upstreamError) {
             return require(name);
         },
         __dirname: root,
-        process,
+        process: { ...process, env: { ...process.env, LOCAL_DB_PATH: dbPath } },
         URL,
         console: { log() {}, error() {} }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
-    return { handler: routes.get("/api/create-order"), requests };
+    return {
+        handler: routes.get("/api/create-order"),
+        requests,
+        dbPath,
+        cleanup() { fs.rmSync(tempDir, { recursive: true, force: true }); }
+    };
 }
 
 function createResponse() {
@@ -59,7 +68,7 @@ const order = {
 };
 
 test("create order posts to the cURL endpoint with body and headers in the correct arguments", async () => {
-    const { handler, requests } = loadCreateOrderRoute();
+    const { handler, requests, cleanup } = loadCreateOrderRoute();
     const response = createResponse();
     await handler({ body: { ...order } }, response);
 
@@ -76,17 +85,41 @@ test("create order posts to the cURL endpoint with body and headers in the corre
     assert.equal(response.statusCode, 201);
     assert.equal(response.body.success, true);
     assert.equal(response.body.data.orderId, "test-order-id");
+    cleanup();
+});
+
+test("create order saves the returned order details in the local database", async () => {
+    const orderResponse = {
+        orderRefId: "MBB768",
+        partnerReferenceId: "REF20260522",
+        partnerInvoiceId: "INV06640793156",
+        currency: "MYR",
+        amount: 100,
+        createdAt: "2026-10-23T13:51:55.110459",
+        paymentStatus: "PENDING",
+        orderStatus: "CREATED"
+    };
+    const { handler, dbPath, cleanup } = loadCreateOrderRoute(undefined, orderResponse);
+    const response = createResponse();
+    await handler({ body: { ...order } }, response);
+
+    const db = new DatabaseSync(dbPath);
+    const savedOrder = db.prepare("SELECT * FROM orders WHERE orderRefId = ?").get("MBB768");
+    db.close();
+    assert.deepEqual({ ...savedOrder }, orderResponse);
+    cleanup();
 });
 
 test("create order rejects missing credentials without calling upstream", async () => {
     for (const field of ["webinitToken", "partnerId"]) {
-        const { handler, requests } = loadCreateOrderRoute();
+        const { handler, requests, cleanup } = loadCreateOrderRoute();
         const response = createResponse();
         await handler({ body: { ...order, [field]: "" } }, response);
         assert.equal(response.statusCode, 400);
         assert.equal(response.body.success, false);
         assert.equal(response.body.message, `${field} is required`);
         assert.equal(requests.length, 0);
+        cleanup();
     }
 });
 
@@ -94,11 +127,12 @@ test("create order preserves upstream errors", async () => {
     const upstreamError = Object.assign(new Error("Request failed"), {
         response: { status: 422, data: { message: "Invalid order" } }
     });
-    const { handler } = loadCreateOrderRoute(upstreamError);
+    const { handler, cleanup } = loadCreateOrderRoute(upstreamError);
     const response = createResponse();
     await handler({ body: { ...order } }, response);
     assert.equal(response.statusCode, 422);
     assert.equal(response.body.success, false);
     assert.equal(response.body.message, "Unable to create payment order");
     assert.deepEqual(response.body.error, upstreamError.response.data);
+    cleanup();
 });
