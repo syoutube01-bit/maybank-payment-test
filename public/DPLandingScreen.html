@@ -15,18 +15,6 @@
         button { width: 100%; min-height: 48px; padding: 16px; font-size: 16px; line-height: 1.4; font-family: inherit; overflow-wrap: anywhere; border: none; border-radius: 8px; background: #ffc20e; cursor: pointer; }
         button:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
         #response { margin: 0; min-height: 120px; max-width: 100%; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
-        .db-results { margin-top: 24px; }
-        .table-scroll { max-height: 400px; max-width: 100%; overflow: auto; border: 1px solid #ddd; }
-        .table-scroll:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
-        table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
-        th, td { padding: 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid #ddd; }
-        th { position: sticky; top: 0; background: #f5f5f5; }
-        caption { padding: 12px; text-align: left; font-weight: bold; }
-        dialog { width: min(480px, calc(100% - 32px)); padding: 24px; border: none; border-radius: 12px; color: #17324d; }
-        dialog::backdrop { background: rgb(0 0 0 / 45%); }
-        dialog p { line-height: 1.5; }
-        .dialog-actions { display: flex; gap: 12px; margin-top: 24px; }
-        .dialog-cancel { background: #e5e5e5; }
         @media (max-width: 768px) {
             body { padding: 20px 16px; }
             .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
@@ -43,51 +31,12 @@
             <button id="viewPartyBtn">View Party</button>
             <button id="getByOrderRefBtn">Get Order by Order Reference Id</button>
             <button id="getByInvoiceBtn">Get Order by Partner Invoice Id</button>
-            <button id="getFromDbBtn">Get from DB</button>
-            <button id="clearDbBtn">Clear DB</button>
         </div>
         <div class="right">
             <h3>Response</h3>
             <pre id="response" aria-live="polite"></pre>
-            <section class="db-results" id="dbResults" hidden aria-labelledby="dbHeading">
-                <h3 id="dbHeading">Saved Orders</h3>
-                <p id="dbStatus" role="status"></p>
-                <div class="table-scroll" tabindex="0" role="region" aria-label="Saved orders table" hidden id="dbTableContainer">
-                    <table>
-                        <caption>Orders stored in the local database (newest first)</caption>
-                        <thead>
-                            <tr>
-                                <th scope="col">Order Reference Id</th>
-                                <th scope="col">Partner Reference Id</th>
-                                <th scope="col">Partner Invoice Id</th>
-                                <th scope="col">Currency</th>
-                                <th scope="col">Amount</th>
-                                <th scope="col">Created At</th>
-                                <th scope="col">Payment Status</th>
-                                <th scope="col">Order Status</th>
-                                <th scope="col">Partner Code</th>
-                                <th scope="col">Partner Name</th>
-                                <th scope="col">Partner Invoice</th>
-                                <th scope="col">Partner Reference Number</th>
-                                <th scope="col">Status Description</th>
-                                <th scope="col">Completed Date Time</th>
-                                <th scope="col">Payment Status Code</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dbOrdersBody"></tbody>
-                    </table>
-                </div>
-            </section>
         </div>
     </div>
-    <dialog id="clearDbDialog" aria-labelledby="clearDbTitle" aria-describedby="clearDbWarning">
-        <h3 id="clearDbTitle">Clear DB</h3>
-        <p id="clearDbWarning">Clear all saved orders from the local database? This cannot be undone.</p>
-        <form method="dialog" class="dialog-actions">
-            <button class="dialog-cancel" autofocus>Cancel</button>
-            <button type="button" id="confirmClearDbBtn">Clear DB</button>
-        </form>
-    </dialog>
 <script>
 const DP_ORDERS_URL = "/api/dp/create-order";
 let accessToken = "";
@@ -234,88 +183,6 @@ async function getOrderByInvoiceId() {
     }
 }
 
-async function getFromDb() {
-    const button = document.getElementById("getFromDbBtn");
-    const clearButton = document.getElementById("clearDbBtn");
-    if (button.disabled || clearButton.disabled) return;
-    const status = document.getElementById("dbStatus");
-    const container = document.getElementById("dbTableContainer");
-    const body = document.getElementById("dbOrdersBody");
-    document.getElementById("dbResults").hidden = false;
-    button.disabled = true;
-    clearButton.disabled = true;
-    status.textContent = "Loading saved orders...";
-    container.hidden = true;
-    body.replaceChildren();
-    try {
-        const res = await fetch("/api/local/orders", { method: "GET" });
-        const text = await res.text();
-        if (!res.ok) {
-            throw new Error("HTTP " + res.status + "\n" + text);
-        }
-        const data = JSON.parse(text);
-        if (!data || data.success !== true || !Array.isArray(data.data)) {
-            throw new Error("Invalid orders response");
-        }
-        const columns = [
-            "orderRefId", "partnerReferenceId", "partnerInvoiceId", "currency",
-            "amount", "createdAt", "paymentStatus", "orderStatus", "partnerCode",
-            "partnerName", "PartnerInvoice", "ParnerRefNumber", "statusDescription",
-            "completedDateTime", "PaymentStatusCode"
-        ];
-        const rows = document.createDocumentFragment();
-        for (const order of data.data) {
-            const row = document.createElement("tr");
-            for (const column of columns) {
-                const cell = document.createElement("td");
-                cell.textContent = order[column] ?? "";
-                row.appendChild(cell);
-            }
-            rows.appendChild(row);
-        }
-        body.appendChild(rows);
-        container.hidden = data.data.length === 0;
-        status.textContent = data.data.length === 0
-            ? "No saved orders found."
-            : data.data.length + " saved order(s). Scroll horizontally or vertically to see all data.";
-    } catch (error) {
-        status.textContent = "Unable to load saved orders: " + error.message;
-    } finally {
-        button.disabled = false;
-        clearButton.disabled = false;
-    }
-}
-
-async function clearDb() {
-    const button = document.getElementById("clearDbBtn");
-    const getButton = document.getElementById("getFromDbBtn");
-    if (button.disabled || getButton.disabled) return;
-    const status = document.getElementById("dbStatus");
-    document.getElementById("dbResults").hidden = false;
-    button.disabled = true;
-    getButton.disabled = true;
-    status.textContent = "Clearing saved orders...";
-    try {
-        const res = await fetch("/api/local/orders/clear", { method: "POST" });
-        const text = await res.text();
-        if (!res.ok) {
-            throw new Error("HTTP " + res.status + "\n" + text);
-        }
-        const data = JSON.parse(text);
-        if (!data || data.success !== true || !Number.isSafeInteger(data.deletedCount) || data.deletedCount < 0) {
-            throw new Error("Invalid clear database response");
-        }
-        document.getElementById("dbOrdersBody").replaceChildren();
-        document.getElementById("dbTableContainer").hidden = true;
-        status.textContent = "Database cleared. " + data.deletedCount + " saved order(s) deleted.";
-    } catch (error) {
-        status.textContent = "Unable to clear saved orders: " + error.message;
-    } finally {
-        button.disabled = false;
-        getButton.disabled = false;
-    }
-}
-
 function getToken() {
     if (accessToken) return Promise.resolve(accessToken);
     if (tokenRequest) return tokenRequest;
@@ -342,18 +209,6 @@ document.getElementById("createOrderBtn").addEventListener("click", createOrder)
 document.getElementById("viewPartyBtn").addEventListener("click", viewParty);
 document.getElementById("getByOrderRefBtn").addEventListener("click", getOrderByRefId);
 document.getElementById("getByInvoiceBtn").addEventListener("click", getOrderByInvoiceId);
-document.getElementById("getFromDbBtn").addEventListener("click", getFromDb);
-document.getElementById("clearDbBtn").addEventListener("click", () => {
-    if (document.getElementById("clearDbBtn").disabled || document.getElementById("getFromDbBtn").disabled) return;
-    const dialog = document.getElementById("clearDbDialog");
-    if (!dialog.open) dialog.showModal();
-});
-document.getElementById("confirmClearDbBtn").addEventListener("click", () => {
-    const dialog = document.getElementById("clearDbDialog");
-    if (!dialog.open) return;
-    dialog.close();
-    return clearDb();
-});
 </script>
 </body>
 </html>
