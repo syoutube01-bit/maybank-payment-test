@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTOS Score Report</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            min-height: 100svh;
+            margin: 0;
+            padding: 4px;
+            color: #383838;
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            background: #f0f1f4;
+        }
+        .page {
+            position: relative;
+            max-width: 536px;
+            min-height: calc(100vh - 4px);
+            min-height: calc(100svh - 4px);
+            margin: 0 auto;
+            padding: 16px 32px 48px;
+            border: 1px solid #e8edef;
+            background: #fff;
+        }
+        .api-test {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+        }
+        .api-test:focus-visible {
+            z-index: 1;
+            top: 8px;
+            right: 8px;
+            width: auto;
+            height: auto;
+            padding: 8px 12px;
+            clip: auto;
+            color: #007f89;
+            background: #fff;
+            outline: 2px solid #007f89;
+        }
+        .brand-row {
+            display: flex;
+            min-height: 91px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            color: #007f89;
+            white-space: nowrap;
+        }
+        .brand h1 {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 43px;
+            font-weight: 700;
+            letter-spacing: -3px;
+            line-height: 1;
+            text-transform: lowercase;
+        }
+        .registered {
+            align-self: flex-start;
+            margin: 13px 8px 0 2px;
+            font-size: 9px;
+        }
+        .score-label {
+            font-size: 34px;
+            letter-spacing: -1.5px;
+        }
+        .score-gauge {
+            width: 130px;
+            height: 83px;
+            flex: 0 0 auto;
+        }
+        .description {
+            margin: 10px 0 18px;
+            color: #6b6b6b;
+            font-size: 22px;
+            font-weight: 400;
+            line-height: 1.23;
+        }
+        hr {
+            height: 1px;
+            margin: 19px 0 23px;
+            border: 0;
+            background: #c9c9c9;
+        }
+        h2 {
+            margin: 0;
+            color: #4a4a4a;
+            font-size: 21px;
+            font-weight: 400;
+        }
+        .email-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 22px 0 21px;
+            color: #111;
+            font-size: 19px;
+        }
+        .outline-button {
+            min-height: 55px;
+            padding: 0 17px;
+            border: 3px solid #00818b;
+            border-radius: 6px;
+            color: #007f89;
+            font: inherit;
+            font-size: 19px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .privacy {
+            margin: 0;
+            color: #f4511e;
+            font-size: 16px;
+            line-height: 1.3;
+        }
+        .payment-section hr {
+            margin: 49px 0 23px;
+        }
+        .payment-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 23px 0 42px 8px;
+        }
+        .report-name {
+            margin: 0 0 1px;
+            font-size: 16px;
+        }
+        .report-items {
+            margin: 0;
+            padding-left: 17px;
+            font-size: 16px;
+            line-height: 1.25;
+        }
+        .amount {
+            flex: 0 0 auto;
+            text-align: right;
+        }
+        .price {
+            color: #707070;
+            font-family: Arial, sans-serif;
+            font-size: 34px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .tax {
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        .promo-label {
+            display: block;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        .promo-row {
+            display: flex;
+            gap: 11px;
+        }
+        .promo-input {
+            min-width: 0;
+            min-height: 55px;
+            flex: 1;
+            padding: 0 15px;
+            border: 1px solid #c6cfd6;
+            border-radius: 6px;
+            color: #333;
+            font: inherit;
+            font-size: 19px;
+        }
+        .promo-input::placeholder { color: #c8cacc; }
+        .agreement {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 49px 0 34px;
+            font-size: 19px;
+            white-space: nowrap;
+        }
+        .agreement input {
+            width: 29px;
+            height: 29px;
+            flex: 0 0 auto;
+            margin: 0;
+            accent-color: #888;
+        }
+        .agreement a {
+            color: #f4511e;
+            text-decoration: underline;
+        }
+        .buy-button {
+            width: 100%;
+            min-height: 71px;
+            border: 0;
+            border-radius: 12px;
+            color: #fff;
+            font: inherit;
+            font-size: 23px;
+            font-weight: 700;
+            background: #f4511e;
+            cursor: pointer;
+        }
+        .buy-button:disabled {
+            background: #b8b8b8;
+            cursor: not-allowed;
+        }
+        button:focus-visible, input:focus-visible, a:focus-visible {
+            outline: 3px solid #17324d;
+            outline-offset: 3px;
+        }
+        @media (max-width: 480px) {
+            .page { padding: 12px 20px 32px; }
+            .brand-row { min-height: 78px; }
+            .brand h1 { font-size: 37px; }
+            .score-label { font-size: 29px; }
+            .score-gauge { width: 112px; height: 73px; }
+            .description { font-size: 19px; }
+            .payment-section hr { margin-top: 38px; }
+            .payment-summary { margin-bottom: 34px; }
+            .price { font-size: 29px; }
+            .agreement { gap: 9px; font-size: 16px; }
+        }
+        @media (max-width: 360px) {
+            .page { padding-right: 15px; padding-left: 15px; }
+            .score-gauge { width: 96px; }
+            .email-row { font-size: 16px; }
+            .outline-button { padding: 0 12px; font-size: 17px; }
+            .agreement { white-space: normal; }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        <header class="brand-row">
+            <div class="brand" aria-label="CTOS Score">
+                <h1>CTOS</h1>
+                <span class="registered" aria-hidden="true">®</span>
+                <span class="score-label">Score</span>
+            </div>
+            <svg class="score-gauge" viewBox="0 0 180 106" role="img" aria-label="CTOS score range from 300 to 850">
+                <path d="M30 80 A60 60 0 0 1 41.5 44.7" fill="none" stroke="#ef342e" stroke-width="18"/>
+                <path d="M41.5 44.7 A60 60 0 0 1 71.5 23" fill="none" stroke="#f47721" stroke-width="18"/>
+                <path d="M71.5 23 A60 60 0 0 1 108.5 23" fill="none" stroke="#f5d313" stroke-width="18"/>
+                <path d="M108.5 23 A60 60 0 0 1 138.5 44.7" fill="none" stroke="#8fba25" stroke-width="18"/>
+                <path d="M138.5 44.7 A60 60 0 0 1 150 80" fill="none" stroke="#168843" stroke-width="18"/>
+                <g fill="#fff" font-family="Arial, sans-serif" font-size="7" font-weight="700" text-anchor="middle">
+                    <text x="40" y="63" transform="rotate(-61 40 63)">Poor</text>
+                    <text x="57" y="39" transform="rotate(-42 57 39)">Fair</text>
+                    <text x="90" y="29">Good</text>
+                    <text x="124" y="39" transform="rotate(42 124 39)">Very good</text>
+                    <text x="141" y="63" transform="rotate(61 141 63)">Excellent</text>
+                </g>
+                <path d="M90 80 L119 57" stroke="#777" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="90" cy="80" r="4" fill="#777"/>
+                <g fill="#333" font-family="Arial, sans-serif" font-size="9" text-anchor="middle">
+                    <text x="25" y="97">300</text>
+                    <text x="155" y="97">850</text>
+                </g>
+            </svg>
+        </header>
+
+        <p class="description">Your CTOS Score is a 3-digit number that shows you how likely you are to be accepted for credit; such as credit cards, car loans, housing loans &amp; education loans. It is based on your past credit repayment behaviour, and is used to predict how good you would be at repaying future credit.</p>
+
+        <hr>
+
+        <section aria-labelledby="email-heading">
+            <h2 id="email-heading">Your Maybank registered email</h2>
+            <div class="email-row">
+                <span>A**yuki@yopmail.com</span>
+                <button class="outline-button" type="button">Update</button>
+            </div>
+            <p class="privacy">CTOS is committed to protecting your privacy in accordance with the Personal Data Protection Act 2010 of Malaysia (PDPA).</p>
+        </section>
+
+        <section class="payment-section" aria-labelledby="payment-heading">
+            <hr>
+            <h2 id="payment-heading">Payment Details</h2>
+            <div class="payment-summary">
+                <div>
+                    <p class="report-name">CTOS Score Report</p>
+                    <ul class="report-items">
+                        <li>CTOS Score</li>
+                        <li>CCRIS Records (BNM)</li>
+                    </ul>
+                </div>
+                <div class="amount">
+                    <div class="price">RM100</div>
+                    <div class="tax">Incl. of Service Tax</div>
+                </div>
+            </div>
+
+            <label class="promo-label" for="promoCode">I Have a Promo Code</label>
+            <div class="promo-row">
+                <input class="promo-input" id="promoCode" type="text" placeholder="Enter promo code">
+                <button class="outline-button" type="button">Apply</button>
+            </div>
+
+            <label class="agreement">
+                <input id="termsAgreement" type="checkbox" checked>
+                <span>I agree with CTOS's</span>
+                <a href="#terms">Terms &amp; Conditions</a>
+            </label>
+
+            <button class="buy-button" id="buyButton" type="button" disabled>Buy</button>
+            <p id="paymentStatus" role="status" style="overflow-wrap: anywhere;"></p>
+        </section>
+    </main>
+    <script>
+        document.getElementById("apiTestLink").href += window.location.search;
+        const termsAgreement = document.getElementById("termsAgreement");
+        const buyButton = document.getElementById("buyButton");
+        const paymentStatus = document.getElementById("paymentStatus");
+        let isBuying = false;
+
+        function updateBuyButton() {
+            buyButton.disabled = isBuying || !termsAgreement.checked;
+        }
+
+        function buildPartnerInvoiceId() {
+            let digits = "";
+            for (let i = 0; i < 11; i++) {
+                digits += Math.floor(Math.random() * 10);
+            }
+            return "INV" + digits;
+        }
+
+        function detectNativePlatform() {
+            const platform = (navigator.platform || "").toLowerCase();
+            if (/iphone|ipad|ipod|mac/.test(platform)) return "ios";
+            if (/linux|android/.test(platform)) return "android";
+            return "unknown";
+        }
+
+        function triggerRedirection(url) {
+            window.location.href = url.replace(/^https:\/\//, "m2ulife://");
+        }
+
+        async function getToken() {
+            const res = await fetch("/api/dp/token", { method: "POST" });
+            const text = await res.text();
+            if (!res.ok) {
+                throw new Error("Get Token: HTTP " + res.status + "\n" + text);
+            }
+            const data = JSON.parse(text);
+            const token = data.responseData?.access_token;
+            if (data.txnStatus?.code !== "AOK200" || typeof token !== "string" || !token.trim()) {
+                throw new Error("Get Token returned no valid access token: " + text);
+            }
+            return token;
+        }
+
+        async function createOrder(accessToken) {
+            const initResponse = window.nativeMessageService
+                ? await window.nativeMessageService.callAPI("GET_INIT_TOKEN", {})
+                : null;
+            const res = await fetch("/api/dp/create-order", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain",
+                    "x-webinit-token": initResponse?.webInitToken || "",
+                    "x-access-token": accessToken
+                },
+                body: JSON.stringify({
+                    partnerReferenceId: "REF20260522",
+                    currency: "MYR",
+                    amount: 100,
+                    remark: "CTOS Score Report",
+                    partnerInvoiceId: buildPartnerInvoiceId()
+                })
+            });
+            const text = await res.text();
+            if (!res.ok) {
+                throw new Error("Create Order: HTTP " + res.status + "\n" + text);
+            }
+            const data = JSON.parse(text);
+            if (data.statusCode !== "0000") {
+                throw new Error("Create Order failed: " + text);
+            }
+            const platform = detectNativePlatform();
+            const redirectionUrl = platform === "ios" ? data.redirection?.ios : data.redirection?.android;
+            if (typeof redirectionUrl !== "string" || !redirectionUrl.trim()) {
+                throw new Error("No redirection URL for platform: " + platform);
+            }
+            triggerRedirection(redirectionUrl);
+        }
+
+        updateBuyButton();
+        termsAgreement.addEventListener("change", updateBuyButton);
+        buyButton.addEventListener("click", async () => {
+            if (isBuying || !termsAgreement.checked) return;
+            isBuying = true;
+            updateBuyButton();
+            paymentStatus.textContent = "Getting payment token...";
+            try {
+                const accessToken = await getToken();
+                paymentStatus.textContent = "Creating order...";
+                await createOrder(accessToken);
+                paymentStatus.textContent = "Redirecting to payment...";
+            } catch (error) {
+                paymentStatus.textContent = "Payment failed: " + error.message;
+            } finally {
+                isBuying = false;
+                updateBuyButton();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -18,6 +18,25 @@ const DP_TOKEN_URL = "https://staging.api.maybank.com/api/oauth2/v8/clientcred/t
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const partnerLandingPages = {
+    "mbb-mae-easybook": "easybook-landing.html",
+    "mbb-mae-esim": "esim-landing.html",
+    "mbb-mae-ctos": "ctos-landing.html"
+};
+
+app.get("/", (req, res, next) => {
+    const landingPage = Object.hasOwn(partnerLandingPages, req.query.partnerId)
+        ? partnerLandingPages[req.query.partnerId]
+        : undefined;
+    if (!landingPage) {
+        return next();
+    }
+
+    const queryIndex = req.originalUrl.indexOf("?");
+    const query = queryIndex === -1 ? "" : req.originalUrl.slice(queryIndex);
+    return res.redirect(302, `/${landingPage}${query}`);
+});
+
 // Serve HTML
 app.use(express.static(path.join(__dirname, "public")));
 
