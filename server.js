@@ -67,6 +67,9 @@ function getDigitalIdFromWebInitToken(webinitToken) {
     let claims;
     try {
         claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+        console.error(
+            "Rajan Web-init JWT claims:", claims
+        );
     } catch {
         throw new Error("Web-init JWT payload is not valid JSON.");
     }
