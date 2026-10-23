@@ -364,8 +364,28 @@
             return token;
         }
 
+        function logUserId(webInitToken) {
+            try {
+                const parts = webInitToken.split(".");
+                if (parts.length !== 3 || parts.some(part => !part)) {
+                    throw new Error("Web-init token is not a signed JWT.");
+                }
+                const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+                const bytes = Uint8Array.from(atob(payload), character => character.charCodeAt(0));
+                const claims = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+                if (typeof claims?.digitalID !== "string" || !claims.digitalID.trim()) {
+                    throw new Error("Web-init JWT has no valid digitalID claim.");
+                }
+                // Decoded only for diagnostics; this is not a verified identity.
+                console.log("User ID:", claims.digitalID);
+            } catch (error) {
+                console.error("Unable to read user ID from web-init JWT: " + error.message);
+            }
+        }
+
         async function createOrder(accessToken) {
             const webInitToken = await window.paymentSession.getWebInitToken();
+            logUserId(webInitToken);
             const res = await fetch("/api/dp/create-order", {
                 method: "POST",
                 headers: {

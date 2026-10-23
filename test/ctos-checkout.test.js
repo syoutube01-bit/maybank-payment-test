@@ -6,6 +6,8 @@ const { test } = require("node:test");
 
 function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     const elements = new Map();
+    const logs = [];
+    const errors = [];
     for (const id of ["apiTestLink", "termsAgreement", "buyButton", "paymentStatus"]) {
         elements.set(id, {
             href: "/index.html",
@@ -25,13 +27,21 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
         document: { getElementById(id) { return elements.get(id); } },
         navigator: { platform },
         window,
-        fetch
+        fetch,
+        atob,
+        TextDecoder,
+        console: {
+            log(...args) { logs.push(args); },
+            error(...args) { errors.push(args); }
+        }
     });
     vm.runInContext(fs.readFileSync(path.join(__dirname, "../public/payment-session.js"), "utf8"), context);
     vm.runInContext(script, context);
     return {
         elements,
         window,
+        logs,
+        errors,
         click: () => elements.get("buyButton").listeners.click()
     };
 }
@@ -45,6 +55,58 @@ const validOrder = {
     statusCode: "0000",
     redirection: { ios: "https://payment/ios", android: "https://payment/android" }
 };
+
+function webInitJwt(claims) {
+    return "eyJhbGciOiJSUzI1NiJ9." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".signature";
+}
+
+test("Buy logs digitalID as the user ID without logging or changing the native JWT", async () => {
+    const userId = "user-\u7528\u6237-\u083e\u083f";
+    const token = webInitJwt({ digitalID: userId, sub: "different-user" });
+    const requests = [];
+    const checkout = loadCheckout({
+        bridge: { async callAPI() { return { webInitToken: token }; } },
+        async fetch(url, options) {
+            requests.push({ url, options });
+            return response(url === "/api/dp/token" ? validToken : validOrder);
+        }
+    });
+    await checkout.click();
+    assert.deepEqual(checkout.logs, [["User ID:", userId]]);
+    assert.deepEqual(checkout.errors, []);
+    assert.equal(requests[1].options.headers["x-webinit-token"], token);
+    assert.equal(Object.hasOwn(JSON.parse(requests[1].options.body), "userId"), false);
+    assert.equal(checkout.window.location.href, "m2ulife://payment/ios");
+});
+
+for (const token of [
+    "not-a-jwt",
+    "header..signature",
+    "header.%%%.signature",
+    "header.bm90LWpzb24.signature",
+    "header._w.signature",
+    webInitJwt(null),
+    webInitJwt({}),
+    webInitJwt({ digitalId: "wrong-case" }),
+    webInitJwt({ digitalID: "" }),
+    webInitJwt({ digitalID: " " }),
+    webInitJwt({ digitalID: 123 })
+]) {
+    test(`Buy reports an unreadable user ID without blocking payment (${token})`, async () => {
+        const checkout = loadCheckout({
+            bridge: { async callAPI() { return { webInitToken: token }; } },
+            async fetch(url) {
+                return response(url === "/api/dp/token" ? validToken : validOrder);
+            }
+        });
+        await checkout.click();
+        assert.deepEqual(checkout.logs, []);
+        assert.equal(checkout.errors.length, 1);
+        assert.match(checkout.errors[0][0], /^Unable to read user ID from web-init JWT:/);
+        assert.equal(checkout.errors[0][0].includes(token), false);
+        assert.equal(checkout.window.location.href, "m2ulife://payment/ios");
+    });
+}
 
 for (const [platform, destination] of [["iPhone", "ios"], ["Linux aarch64", "android"]]) {
     test(`Buy fetches a token, creates the displayed order and redirects on ${platform}`, async () => {
