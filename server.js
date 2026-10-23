@@ -54,8 +54,8 @@ function getOrderDatabase() {
     return orderDatabase;
 }
 
-// Decodes (without verifying the signature) the digitalID claim from the MAE web-init JWT.
-// Throws when the token is malformed, expired or has no digitalID.
+// Decodes (without verifying the signature) the did claim from the MAE web-init JWT.
+// Throws when the token is malformed, expired or has no did.
 function getDigitalIdFromWebInitToken(webinitToken) {
     const token = typeof webinitToken === "string"
         ? webinitToken.trim().replace(/^bearer\s+/i, "")
@@ -67,30 +67,17 @@ function getDigitalIdFromWebInitToken(webinitToken) {
     let claims;
     try {
         claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
-        console.error(
-            "Rajan Web-init JWT claims:", claims
-        );
     } catch {
         throw new Error("Web-init JWT payload is not valid JSON.");
     }
     if (typeof claims?.exp === "number" && claims.exp * 1000 <= Date.now()) {
         throw new Error("Web-init JWT has expired.");
     }
-    if (typeof claims?.digitalID !== "string" || !claims.digitalID.trim()) {
-        throw new Error("Web-init JWT has no valid digitalID claim.");
+    if (typeof claims?.did !== "string" || !claims.did.trim()) {
+        throw new Error("Web-init JWT has no valid did claim.");
     }
-    const digitalId = claims.digitalID.trim();
-    console.log("Web-init JWT digitalID:", digitalId);
+    const digitalId = claims.did.trim();
     return digitalId;
-}
-
-function tryGetDigitalId(webinitToken, label) {
-    try {
-        return getDigitalIdFromWebInitToken(webinitToken);
-    } catch (error) {
-        console.error(`[${label}] Order will not be linked to a user: ${error.message}`);
-        return null;
-    }
 }
 
 const MAYBANK_API_BASE_URL = "https://payments-npas.maybank.com.my/sit/";
@@ -257,7 +244,7 @@ app.get("/api/local/orders/:orderRefId", (req, res) => {
     }
 });
 
-// Orders of the logged-in microsite user, identified by the digitalID in the web-init JWT.
+// Orders of the logged-in microsite user, identified by did in the web-init JWT.
 app.get("/api/my/orders", (req, res) => {
     let digitalId;
     try {
@@ -439,6 +426,13 @@ app.post("/api/create-order", async (req, res) => {
             });
         }
 
+        let digitalId;
+        try {
+            digitalId = getDigitalIdFromWebInitToken(webinitToken);
+        } catch (error) {
+            return res.status(401).json({ success: false, message: error.message });
+        }
+
         const requestBody = {
             partnerInvoiceId,
             partnerReferenceId,
@@ -473,8 +467,7 @@ app.post("/api/create-order", async (req, res) => {
         );
 console.log("Maybank API FULL Response :", response);
         console.log("Maybank API Response:", response.data);
-        persistOrderResponse(response.data, requestBody,
-            tryGetDigitalId(webinitToken, "Create order"));
+        persistOrderResponse(response.data, requestBody, digitalId);
         return res.status(response.status).json({
             success: true,
             data: response.data
@@ -699,6 +692,12 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
         if (!webinitToken.trim()) {
             return res.status(400).send("webinitToken is required for Create Order.");
         }
+        let digitalId;
+        try {
+            digitalId = getDigitalIdFromWebInitToken(webinitToken);
+        } catch (error) {
+            return res.status(401).send(error.message);
+        }
         const plaintextBody = JSON.stringify(orderPayload);
         const encryptedBody = await encryptDpBody(plaintextBody);
         const response = await dpRequest("DP create order", "post", DP_ORDERS_URL,
@@ -706,8 +705,7 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
                 body: encryptedBody,
                 accessToken
             });
-        persistOrderResponse(response.data, orderPayload,
-            tryGetDigitalId(webinitToken, "DP create order"));
+        persistOrderResponse(response.data, orderPayload, digitalId);
         return sendDpResponse(res, response);
     } catch (error) {
         return sendDpError(res, "DP create order", error);

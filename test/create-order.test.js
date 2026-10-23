@@ -58,7 +58,7 @@ function createResponse() {
 }
 
 const order = {
-    webinitToken: "test-webinit-token",
+    webinitToken: "header." + Buffer.from(JSON.stringify({ did: "test-user" })).toString("base64url") + ".sig",
     partnerId: "mbb-mae-easybook",
     partnerInvoiceId: "MB6134155115",
     partnerReferenceId: "REF20260522",
@@ -109,7 +109,7 @@ test("create order saves the returned order details in the local database", asyn
     const { handler, dbPath, cleanup } = loadCreateOrderRoute(undefined, orderResponse);
     const response = createResponse();
     const webinitToken = "eyJhbGciOiJSUzI1NiJ9." +
-        Buffer.from(JSON.stringify({ digitalID: "user-768" })).toString("base64url") + ".sig";
+        Buffer.from(JSON.stringify({ did: "user-768", digitalID: "wrong-user" })).toString("base64url") + ".sig";
     await handler({ body: { ...order, webinitToken } }, response);
 
     const db = new DatabaseSync(dbPath);
@@ -129,6 +129,26 @@ test("create order rejects missing credentials without calling upstream", async 
         assert.equal(response.body.message, `${field} is required`);
         assert.equal(requests.length, 0);
         cleanup();
+    }
+});
+
+test("create order rejects invalid did tokens before calling upstream", async () => {
+    for (const token of [
+        "not-a-jwt",
+        ...[{}, { digitalID: "legacy-user" }, { did: " " }, { did: 123 },
+            { did: "user", exp: 1 }].map(claims =>
+            "header." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".sig")
+    ]) {
+        const { handler, requests, cleanup } = loadCreateOrderRoute();
+        try {
+            const response = createResponse();
+            await handler({ body: { ...order, webinitToken: token } }, response);
+            assert.equal(response.statusCode, 401);
+            assert.equal(response.body.success, false);
+            assert.equal(requests.length, 0);
+        } finally {
+            cleanup();
+        }
     }
 });
 

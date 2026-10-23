@@ -30,7 +30,8 @@ function loadServer(t, databasePath = ":memory:") {
     return {
         context, database, errors,
         persist: vm.runInContext("persistOrderResponse", context),
-        myOrders: routes.get("/api/my/orders")
+        myOrders: routes.get("/api/my/orders"),
+        createDpOrder: routes.get("POST /api/dp/create-order")
     };
 }
 
@@ -63,7 +64,7 @@ test("orders are saved with digitalId and only the owner's orders are returned",
     persist(order("MBB4", 400, "2026-10-22T00:00:00.000Z"), {}, null);
     database.prepare("UPDATE orders SET paymentStatus = 'SUCCESS' WHERE orderRefId = 'MBB1'").run();
 
-    const res = call(myOrders, jwt({ digitalID: "user-a", sub: "user-b" }));
+    const res = call(myOrders, jwt({ did: " user-a ", digitalID: "user-b", sub: "user-b" }));
     assert.equal(res.statusCode, 200);
     assert.deepEqual(res.body, {
         success: true,
@@ -74,7 +75,7 @@ test("orders are saved with digitalId and only the owner's orders are returned",
                 createdAt: "2026-10-21T00:00:00.000Z", partnerName: null, partnerInvoiceId: "INVMBB1" }
         ]
     });
-    assert.deepEqual(call(myOrders, jwt({ digitalID: "nobody" })).body, { success: true, data: [] });
+    assert.deepEqual(call(myOrders, jwt({ did: "nobody" })).body, { success: true, data: [] });
 });
 
 test("re-saving an order without a digitalId keeps the original owner", t => {
@@ -84,18 +85,19 @@ test("re-saving an order without a digitalId keeps the original owner", t => {
     assert.equal(database.prepare("SELECT digitalId FROM orders").get().digitalId, "user-a");
 });
 
-test("my orders rejects missing, malformed, expired or digitalID-less tokens", t => {
+test("my orders rejects missing, malformed, expired or did-less tokens", t => {
     const { myOrders } = loadServer(t);
     for (const token of [
         undefined, "", "not-a-jwt", "a.b", "a.%%%.c",
-        jwt({ sub: "user-a" }), jwt({ digitalID: "   " }),
-        jwt({ digitalID: "user-a", exp: Math.floor(Date.now() / 1000) - 60 })
+        jwt({ sub: "user-a" }), jwt({ digitalID: "user-a" }),
+        jwt({ did: "   " }), jwt({ did: 123 }),
+        jwt({ did: "user-a", exp: Math.floor(Date.now() / 1000) - 60 })
     ]) {
         const res = call(myOrders, token);
         assert.equal(res.statusCode, 401, String(token));
         assert.equal(res.body.success, false);
     }
-    assert.equal(call(myOrders, "Bearer " + jwt({ digitalID: "user-a",
+    assert.equal(call(myOrders, "Bearer " + jwt({ did: "user-a",
         exp: Math.floor(Date.now() / 1000) + 60 })).statusCode, 200);
 });
 
@@ -112,5 +114,56 @@ test("existing databases are migrated to include the digitalId column", t => {
 
     const { persist, myOrders } = loadServer(t, file);
     persist(order("MBB9", 100, "2026-10-23"), {}, "user-a");
-    assert.deepEqual(call(myOrders, jwt({ digitalID: "user-a" })).body.data.map(o => o.orderRefId), ["MBB9"]);
+    assert.deepEqual(call(myOrders, jwt({ did: "user-a" })).body.data.map(o => o.orderRefId), ["MBB9"]);
+});
+
+function dpResponse() {
+    return {
+        statusCode: 200,
+        status(code) { this.statusCode = code; return this; },
+        type() { return this; },
+        send(body) { this.body = body; return this; }
+    };
+}
+
+test("DP create order persists did and My Orders filters the created orders by did", async t => {
+    const { context, database, myOrders, createDpOrder } = loadServer(t);
+    vm.runInContext(`
+        encryptDpBody = async body => body;
+        dpRequest = async (label, method, url, token, options) => ({
+            status: 201,
+            data: { ...JSON.parse(options.body), orderRefId: JSON.parse(options.body).partnerInvoiceId }
+        });
+    `, context);
+    for (const [id, did] of [["INV1", "user-a"], ["INV2", "user-b"]]) {
+        const token = jwt({ did, digitalID: "wrong-user" });
+        const res = dpResponse();
+        await createDpOrder({
+            get: name => name === "x-webinit-token" ? token : "access-token",
+            body: { partnerInvoiceId: id, partnerReferenceId: "REF1", currency: "MYR", amount: 100 }
+        }, res);
+        assert.equal(res.statusCode, 201);
+        assert.equal(database.prepare("SELECT digitalId FROM orders WHERE orderRefId = ?").get(id).digitalId, did);
+        assert.deepEqual(call(myOrders, token).body.data.map(order => order.orderRefId), [id]);
+    }
+    assert.deepEqual(call(myOrders, jwt({ did: "wrong-user" })).body.data, []);
+});
+
+test("DP create order rejects invalid did tokens before encryption or upstream calls", async t => {
+    const { context, database, createDpOrder } = loadServer(t);
+    vm.runInContext(`
+        encryptDpBody = async () => { throw new Error("Encryption must not be called"); };
+        dpRequest = async () => { throw new Error("Upstream must not be called"); };
+    `, context);
+    for (const token of ["not-a-jwt", jwt({ digitalID: "user-a" }), jwt({ did: "" }),
+        jwt({ did: 12 }), jwt({ did: "user-a", exp: 1 })]) {
+        const res = dpResponse();
+        await createDpOrder({
+            get: name => name === "x-webinit-token" ? token : "access-token",
+            body: { partnerInvoiceId: "INV1", partnerReferenceId: "REF1", currency: "MYR", amount: 100 }
+        }, res);
+        assert.equal(res.statusCode, 401);
+        assert.match(res.body, /Web-init/);
+    }
+    assert.equal(database.prepare("SELECT count(*) AS count FROM orders").get().count, 0);
 });

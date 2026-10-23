@@ -1,5 +1,5 @@
 (() => {
-    // Renders the logged-in user's orders (keyed by the web-init JWT digitalID) into #myOrders.
+    // Renders the logged-in user's orders (keyed by the web-init JWT did) into #myOrders.
     function formatDate(value) {
         const date = value ? new Date(value) : null;
         return date && Number.isFinite(date.getTime()) ? date.toISOString().slice(0, 10) : "";
