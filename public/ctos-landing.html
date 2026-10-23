@@ -319,6 +319,7 @@
             <p id="paymentStatus" role="status" style="overflow-wrap: anywhere;"></p>
         </section>
     </main>
+    <script src="/payment-session.js"></script>
     <script>
         document.getElementById("apiTestLink").href += window.location.search;
         const termsAgreement = document.getElementById("termsAgreement");
@@ -364,14 +365,12 @@
         }
 
         async function createOrder(accessToken) {
-            const initResponse = window.nativeMessageService
-                ? await window.nativeMessageService.callAPI("GET_INIT_TOKEN", {})
-                : null;
+            const webInitToken = await window.paymentSession.getWebInitToken();
             const res = await fetch("/api/dp/create-order", {
                 method: "POST",
                 headers: {
                     "Content-Type": "text/plain",
-                    "x-webinit-token": initResponse?.webInitToken || "",
+                    "x-webinit-token": webInitToken,
                     "x-access-token": accessToken
                 },
                 body: JSON.stringify({

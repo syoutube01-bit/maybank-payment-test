@@ -361,6 +361,7 @@
             </div>
         </div>
     </main>
+    <script src="/payment-session.js"></script>
     <script>
         const apiTestLink = document.getElementById("apiTestLink");
         apiTestLink.href += window.location.search;
@@ -406,14 +407,12 @@
         }
 
         async function createOrder(accessToken) {
-            const initResponse = window.nativeMessageService
-                ? await window.nativeMessageService.callAPI("GET_INIT_TOKEN", {})
-                : null;
+            const webInitToken = await window.paymentSession.getWebInitToken();
             const res = await fetch("/api/dp/create-order", {
                 method: "POST",
                 headers: {
                     "Content-Type": "text/plain",
-                    "x-webinit-token": initResponse?.webInitToken || "",
+                    "x-webinit-token": webInitToken,
                     "x-access-token": accessToken
                 },
                 body: JSON.stringify({

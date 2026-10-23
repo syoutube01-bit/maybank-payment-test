@@ -21,12 +21,14 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     };
     const html = fs.readFileSync(path.join(__dirname, "../public/ctos-landing.html"), "utf8");
     const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-    vm.runInNewContext(script, {
+    const context = vm.createContext({
         document: { getElementById(id) { return elements.get(id); } },
         navigator: { platform },
         window,
         fetch
     });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, "../public/payment-session.js"), "utf8"), context);
+    vm.runInContext(script, context);
     return {
         elements,
         window,
