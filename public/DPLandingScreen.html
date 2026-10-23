@@ -22,6 +22,11 @@
         th, td { padding: 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid #ddd; }
         th { position: sticky; top: 0; background: #f5f5f5; }
         caption { padding: 12px; text-align: left; font-weight: bold; }
+        dialog { width: min(480px, calc(100% - 32px)); padding: 24px; border: none; border-radius: 12px; color: #17324d; }
+        dialog::backdrop { background: rgb(0 0 0 / 45%); }
+        dialog p { line-height: 1.5; }
+        .dialog-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .dialog-cancel { background: #e5e5e5; }
         @media (max-width: 768px) {
             body { padding: 20px 16px; }
             .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
@@ -68,6 +73,14 @@
             </section>
         </div>
     </div>
+    <dialog id="clearDbDialog" aria-labelledby="clearDbTitle" aria-describedby="clearDbWarning">
+        <h3 id="clearDbTitle">Clear DB</h3>
+        <p id="clearDbWarning">Clear all saved orders from the local database? This cannot be undone.</p>
+        <form method="dialog" class="dialog-actions">
+            <button class="dialog-cancel" autofocus>Cancel</button>
+            <button type="button" id="confirmClearDbBtn">Clear DB</button>
+        </form>
+    </dialog>
 <script>
 const DP_ORDERS_URL = "/api/dp/create-order";
 let accessToken = "";
@@ -268,8 +281,6 @@ async function clearDb() {
     const button = document.getElementById("clearDbBtn");
     const getButton = document.getElementById("getFromDbBtn");
     if (button.disabled || getButton.disabled) return;
-    if (!window.confirm("Clear all saved orders from the local database? This cannot be undone.")) return;
-
     const status = document.getElementById("dbStatus");
     document.getElementById("dbResults").hidden = false;
     button.disabled = true;
@@ -323,7 +334,17 @@ document.getElementById("viewPartyBtn").addEventListener("click", viewParty);
 document.getElementById("getByOrderRefBtn").addEventListener("click", getOrderByRefId);
 document.getElementById("getByInvoiceBtn").addEventListener("click", getOrderByInvoiceId);
 document.getElementById("getFromDbBtn").addEventListener("click", getFromDb);
-document.getElementById("clearDbBtn").addEventListener("click", clearDb);
+document.getElementById("clearDbBtn").addEventListener("click", () => {
+    if (document.getElementById("clearDbBtn").disabled || document.getElementById("getFromDbBtn").disabled) return;
+    const dialog = document.getElementById("clearDbDialog");
+    if (!dialog.open) dialog.showModal();
+});
+document.getElementById("confirmClearDbBtn").addEventListener("click", () => {
+    const dialog = document.getElementById("clearDbDialog");
+    if (!dialog.open) return;
+    dialog.close();
+    return clearDb();
+});
 </script>
 </body>
 </html>

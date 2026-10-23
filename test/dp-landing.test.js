@@ -37,7 +37,6 @@ function loadPage({
         };
     }
     const window = {
-        confirm: () => confirmClear,
         location: { href: "" },
         nativeMessageService: { callAPI: async () => ({ webInitToken: "native-token" }) }
     };
@@ -45,11 +44,19 @@ function loadPage({
         document: {
             getElementById(id) {
                 if (id === "response") return output;
+                if (id === "clearDbDialog") {
+                    if (!elements.has(id)) elements.set(id, {
+                        open: false,
+                        showModal() { this.open = true; },
+                        close() { this.open = false; }
+                    });
+                    return elements.get(id);
+                }
                 if (id.startsWith("db")) {
                     if (!elements.has(id)) elements.set(id, createElement());
                     return elements.get(id);
                 }
-                if (id === "getFromDbBtn" || id === "clearDbBtn") {
+                if (id === "getFromDbBtn" || id === "clearDbBtn" || id === "confirmClearDbBtn") {
                     if (!elements.has(id)) elements.set(id, {
                         disabled: false,
                         addEventListener: (event, handler) => listeners.set(id, handler)
@@ -74,12 +81,22 @@ function loadPage({
         }
     });
     vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
-    return { click: id => listeners.get(id)(), requests, output, window, elements };
+    return {
+        click(id) {
+            const result = listeners.get(id)();
+            if (id === "clearDbBtn" && elements.get("clearDbDialog")?.open && confirmClear !== null) {
+                if (confirmClear) return listeners.get("confirmClearDbBtn")();
+                elements.get("clearDbDialog").close();
+            }
+            return result;
+        },
+        requests, output, window, elements
+    };
 }
 
 test("the landing screen has four API buttons and two local database buttons", () => {
     assert.doesNotMatch(html, /getTokenBtn/);
-    assert.equal((html.match(/<button\b/g) || []).length, 6);
+    assert.equal((html.match(/<div class="left">([\s\S]*?)<\/div>/)[1].match(/<button\b/g) || []).length, 6);
 });
 
 for (const [button, endpoint] of actions) {
@@ -208,6 +225,24 @@ test("Clear DB requires confirmation before requesting deletion", async () => {
     const page = loadPage({ confirmClear: false });
     await page.click("clearDbBtn");
     assert.equal(page.requests.length, 0);
+    assert.equal(page.elements.get("clearDbDialog").open, false);
+});
+
+test("Clear DB shows a custom titled dialog and only deletes on confirmation", async () => {
+    assert.match(html, /<dialog[^>]*aria-labelledby="clearDbTitle"[^>]*aria-describedby="clearDbWarning"/);
+    assert.match(html, /<h3 id="clearDbTitle">Clear DB<\/h3>/);
+    assert.match(html, /<button class="dialog-cancel" autofocus>Cancel<\/button>/);
+    assert.doesNotMatch(html, /window\.confirm/);
+    const page = loadPage({ confirmClear: null });
+    await page.click("clearDbBtn");
+    assert.equal(page.elements.get("clearDbDialog").open, true);
+    assert.equal(page.requests.length, 0);
+    await page.click("clearDbBtn");
+    await page.click("confirmClearDbBtn");
+    assert.equal(page.elements.get("clearDbDialog").open, false);
+    assert.deepEqual(page.requests.map(request => request.url), ["/api/local/orders/clear"]);
+    await page.click("confirmClearDbBtn");
+    assert.equal(page.requests.length, 1);
 });
 
 test("Clear DB deletes saved orders without a token and clears the displayed table", async () => {
