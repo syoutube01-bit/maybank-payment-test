@@ -33,6 +33,7 @@ function loadOrdersRoute(t) {
     return {
         handler: routes.get("/api/local/orders"),
         clearHandler: routes.get("POST /api/local/orders/clear"),
+        updatePaymentStatusHandler: routes.get("POST /api/local/orders/payment-status"),
         database, response, errors
     };
 }
@@ -95,6 +96,70 @@ test("clear local orders logs database failures without claiming success", t => 
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
         success: false, message: "Unable to clear orders from the local database"
+    });
+    assert.equal(errors.length, 1);
+});
+
+test("update payment status changes only the matching order's paymentStatus and is idempotent", t => {
+    const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
+    const insert = database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    for (const id of ["MBB768", "MBB769"]) {
+        insert.run(id, "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+    }
+    const before = database.prepare("SELECT * FROM orders ORDER BY orderRefId").all();
+    const body = { orderRefId: "MBB768", paymentStatus: "SUCCESS" };
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        updatePaymentStatusHandler({ body }, response);
+        assert.equal(response.statusCode, 200);
+        assert.deepEqual(response.body, { success: true, data: body });
+        assert.deepEqual(
+            database.prepare("SELECT * FROM orders ORDER BY orderRefId").all().map(row => ({ ...row })),
+            [{ ...before[0], paymentStatus: "SUCCESS" }, { ...before[1] }]
+        );
+    }
+});
+
+test("update payment status returns 404 for unknown orders and treats IDs as literal values", t => {
+    const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
+    database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run("MBB768", "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+    for (const orderRefId of ["unknown", "MBB768' OR 1=1 --"]) {
+        updatePaymentStatusHandler({ body: { orderRefId, paymentStatus: "SUCCESS" } }, response);
+        assert.equal(response.statusCode, 404);
+        assert.deepEqual(response.body, { success: false, message: "Order not found" });
+    }
+    assert.equal(database.prepare("SELECT paymentStatus FROM orders").get().paymentStatus, "PENDING");
+});
+
+test("update payment status rejects missing, blank, and non-string fields without changing orders", t => {
+    const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
+    database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run("MBB768", "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+    for (const field of ["orderRefId", "paymentStatus"]) {
+        for (const value of [undefined, null, "", "   ", 123, [], {}]) {
+            const body = { orderRefId: "MBB768", paymentStatus: "SUCCESS", [field]: value };
+            updatePaymentStatusHandler({ body }, response);
+            assert.equal(response.statusCode, 400);
+            assert.deepEqual(response.body, {
+                success: false, message: `${field} must be a non-empty string`
+            });
+        }
+    }
+    for (const body of [undefined, null, [], "invalid"]) {
+        updatePaymentStatusHandler({ body }, response);
+        assert.equal(response.statusCode, 400);
+    }
+    assert.equal(database.prepare("SELECT paymentStatus FROM orders").get().paymentStatus, "PENDING");
+});
+
+test("update payment status logs database failures without claiming success", t => {
+    const { updatePaymentStatusHandler, database, response, errors } = loadOrdersRoute(t);
+    database.exec("DROP TABLE orders");
+    updatePaymentStatusHandler({ body: { orderRefId: "MBB768", paymentStatus: "SUCCESS" } }, response);
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(response.body, {
+        success: false, message: "Unable to update payment status in the local database"
     });
     assert.equal(errors.length, 1);
 });

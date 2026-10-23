@@ -139,6 +139,41 @@ app.get("/api/local/orders", (req, res) => {
     }
 });
 
+app.post("/api/local/orders/payment-status", (req, res) => {
+    const { orderRefId, paymentStatus } = req.body || {};
+    if (typeof orderRefId !== "string" || !orderRefId.trim()) {
+        return res.status(400).json({
+            success: false,
+            message: "orderRefId must be a non-empty string"
+        });
+    }
+    if (typeof paymentStatus !== "string" || !paymentStatus.trim()) {
+        return res.status(400).json({
+            success: false,
+            message: "paymentStatus must be a non-empty string"
+        });
+    }
+
+    try {
+        const result = getOrderDatabase().prepare(`
+            UPDATE orders SET paymentStatus = ? WHERE orderRefId = ?
+        `).run(paymentStatus, orderRefId);
+        if (result.changes === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Order not found"
+            });
+        }
+        return res.json({ success: true, data: { orderRefId, paymentStatus } });
+    } catch (error) {
+        console.error("Unable to update local order payment status:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to update payment status in the local database"
+        });
+    }
+});
+
 app.post("/api/local/orders/clear", (req, res) => {
     try {
         const result = getOrderDatabase().prepare("DELETE FROM orders").run();
@@ -522,6 +557,26 @@ app.post("/api/dp/token", async (req, res) => {
     } catch (error) {
         return sendDpError(res, "DP token", error);
     }
+});
+
+app.use("/api", (req, res) => {
+    return res.status(404).json({
+        success: false,
+        message: "API endpoint not found"
+    });
+});
+
+app.use("/api", (error, req, res, next) => {
+    if (res.headersSent) return next(error);
+
+    console.error("API request failed:", error);
+    const status = Number.isInteger(error.status) && error.status >= 400 && error.status <= 599
+        ? error.status
+        : 500;
+    const message = error.type === "entity.parse.failed"
+        ? "Request body must contain valid JSON"
+        : status < 500 ? "Invalid API request" : "Internal server error";
+    return res.status(status).json({ success: false, message });
 });
 
 const PORT = process.env.PORT || 10000;
