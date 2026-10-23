@@ -20,7 +20,9 @@ function response(data, status = 200) {
 function loadPage({
     tokenFetch = async () => response(tokenData),
     promptValue = "REF /+?",
-    ordersFetch = async () => response({ success: true, data: [] })
+    ordersFetch = async () => response({ success: true, data: [] }),
+    clearFetch = async () => response({ success: true, deletedCount: 0 }),
+    confirmClear = true
 } = {}) {
     const requests = [];
     const listeners = new Map();
@@ -35,6 +37,7 @@ function loadPage({
         };
     }
     const window = {
+        confirm: () => confirmClear,
         location: { href: "" },
         nativeMessageService: { callAPI: async () => ({ webInitToken: "native-token" }) }
     };
@@ -46,7 +49,7 @@ function loadPage({
                     if (!elements.has(id)) elements.set(id, createElement());
                     return elements.get(id);
                 }
-                if (id === "getFromDbBtn") {
+                if (id === "getFromDbBtn" || id === "clearDbBtn") {
                     if (!elements.has(id)) elements.set(id, {
                         disabled: false,
                         addEventListener: (event, handler) => listeners.set(id, handler)
@@ -66,6 +69,7 @@ function loadPage({
             requests.push({ url, options });
             if (url === "/api/dp/token") return tokenFetch();
             if (url === "/api/local/orders") return ordersFetch();
+            if (url === "/api/local/orders/clear") return clearFetch();
             return response({ statusCode: "0000", redirection: { ios: "https://payment.test/order" } });
         }
     });
@@ -73,9 +77,9 @@ function loadPage({
     return { click: id => listeners.get(id)(), requests, output, window, elements };
 }
 
-test("the landing screen has four API buttons and a local database button", () => {
+test("the landing screen has four API buttons and two local database buttons", () => {
     assert.doesNotMatch(html, /getTokenBtn/);
-    assert.equal((html.match(/<button\b/g) || []).length, 5);
+    assert.equal((html.match(/<button\b/g) || []).length, 6);
 });
 
 for (const [button, endpoint] of actions) {
@@ -198,4 +202,76 @@ test("Get from DB rejects invalid response shapes", async () => {
     await page.click("getFromDbBtn");
     assert.match(page.elements.get("dbStatus").textContent, /Invalid orders response/);
     assert.equal(page.elements.get("dbTableContainer").hidden, true);
+});
+
+test("Clear DB requires confirmation before requesting deletion", async () => {
+    const page = loadPage({ confirmClear: false });
+    await page.click("clearDbBtn");
+    assert.equal(page.requests.length, 0);
+});
+
+test("Clear DB deletes saved orders without a token and clears the displayed table", async () => {
+    const page = loadPage({
+        ordersFetch: async () => response({ success: true, data: [{ orderRefId: "MBB1" }] }),
+        clearFetch: async () => response({ success: true, deletedCount: 1 })
+    });
+    await page.click("getFromDbBtn");
+    await page.click("clearDbBtn");
+    assert.deepEqual(page.requests.map(request => request.url), [
+        "/api/local/orders", "/api/local/orders/clear"
+    ]);
+    assert.equal(page.requests[1].options.method, "POST");
+    assert.equal(page.elements.get("dbOrdersBody").children.length, 0);
+    assert.equal(page.elements.get("dbTableContainer").hidden, true);
+    assert.match(page.elements.get("dbStatus").textContent, /Database cleared. 1 saved order/);
+    assert.equal(page.elements.get("clearDbBtn").disabled, false);
+    assert.equal(page.elements.get("getFromDbBtn").disabled, false);
+});
+
+test("Clear DB preserves displayed rows on failure and allows retry", async () => {
+    let fail = true;
+    const page = loadPage({
+        ordersFetch: async () => response({ success: true, data: [{ orderRefId: "MBB1" }] }),
+        clearFetch: async () => fail
+            ? response({ success: false }, 500)
+            : response({ success: true, deletedCount: 1 })
+    });
+    await page.click("getFromDbBtn");
+    await page.click("clearDbBtn");
+    assert.match(page.elements.get("dbStatus").textContent, /Unable to clear saved orders: HTTP 500/);
+    assert.equal(page.elements.get("dbOrdersBody").children.length, 1);
+    assert.equal(page.elements.get("dbTableContainer").hidden, false);
+    assert.equal(page.elements.get("clearDbBtn").disabled, false);
+    assert.equal(page.elements.get("getFromDbBtn").disabled, false);
+    fail = false;
+    await page.click("clearDbBtn");
+    assert.equal(page.elements.get("dbOrdersBody").children.length, 0);
+});
+
+test("Clear DB rejects invalid deletion responses", async () => {
+    const page = loadPage({ clearFetch: async () => response({ success: true }) });
+    await page.click("clearDbBtn");
+    assert.match(page.elements.get("dbStatus").textContent, /Invalid clear database response/);
+});
+
+test("database reads and clears cannot overlap", async () => {
+    let resolveOrders;
+    let resolveClear;
+    const page = loadPage({
+        ordersFetch: () => new Promise(resolve => { resolveOrders = resolve; }),
+        clearFetch: () => new Promise(resolve => { resolveClear = resolve; })
+    });
+    const reading = page.click("getFromDbBtn");
+    await page.click("clearDbBtn");
+    assert.equal(page.requests.length, 1);
+    resolveOrders(response({ success: true, data: [] }));
+    await reading;
+    const clearing = page.click("clearDbBtn");
+    await page.click("getFromDbBtn");
+    await page.click("clearDbBtn");
+    assert.equal(page.requests.length, 2);
+    resolveClear(response({ success: true, deletedCount: 0 }));
+    await clearing;
+    assert.equal(page.elements.get("clearDbBtn").disabled, false);
+    assert.equal(page.elements.get("getFromDbBtn").disabled, false);
 });

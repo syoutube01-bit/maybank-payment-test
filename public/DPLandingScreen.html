@@ -39,6 +39,7 @@
             <button id="getByOrderRefBtn">Get Order by Order Reference Id</button>
             <button id="getByInvoiceBtn">Get Order by Partner Invoice Id</button>
             <button id="getFromDbBtn">Get from DB</button>
+            <button id="clearDbBtn">Clear DB</button>
         </div>
         <div class="right">
             <h3>Response</h3>
@@ -215,11 +216,14 @@ async function getOrderByInvoiceId() {
 
 async function getFromDb() {
     const button = document.getElementById("getFromDbBtn");
+    const clearButton = document.getElementById("clearDbBtn");
+    if (button.disabled || clearButton.disabled) return;
     const status = document.getElementById("dbStatus");
     const container = document.getElementById("dbTableContainer");
     const body = document.getElementById("dbOrdersBody");
     document.getElementById("dbResults").hidden = false;
     button.disabled = true;
+    clearButton.disabled = true;
     status.textContent = "Loading saved orders...";
     container.hidden = true;
     body.replaceChildren();
@@ -256,6 +260,39 @@ async function getFromDb() {
         status.textContent = "Unable to load saved orders: " + error.message;
     } finally {
         button.disabled = false;
+        clearButton.disabled = false;
+    }
+}
+
+async function clearDb() {
+    const button = document.getElementById("clearDbBtn");
+    const getButton = document.getElementById("getFromDbBtn");
+    if (button.disabled || getButton.disabled) return;
+    if (!window.confirm("Clear all saved orders from the local database? This cannot be undone.")) return;
+
+    const status = document.getElementById("dbStatus");
+    document.getElementById("dbResults").hidden = false;
+    button.disabled = true;
+    getButton.disabled = true;
+    status.textContent = "Clearing saved orders...";
+    try {
+        const res = await fetch("/api/local/orders/clear", { method: "POST" });
+        const text = await res.text();
+        if (!res.ok) {
+            throw new Error("HTTP " + res.status + "\n" + text);
+        }
+        const data = JSON.parse(text);
+        if (!data || data.success !== true || !Number.isSafeInteger(data.deletedCount) || data.deletedCount < 0) {
+            throw new Error("Invalid clear database response");
+        }
+        document.getElementById("dbOrdersBody").replaceChildren();
+        document.getElementById("dbTableContainer").hidden = true;
+        status.textContent = "Database cleared. " + data.deletedCount + " saved order(s) deleted.";
+    } catch (error) {
+        status.textContent = "Unable to clear saved orders: " + error.message;
+    } finally {
+        button.disabled = false;
+        getButton.disabled = false;
     }
 }
 
@@ -286,6 +323,7 @@ document.getElementById("viewPartyBtn").addEventListener("click", viewParty);
 document.getElementById("getByOrderRefBtn").addEventListener("click", getOrderByRefId);
 document.getElementById("getByInvoiceBtn").addEventListener("click", getOrderByInvoiceId);
 document.getElementById("getFromDbBtn").addEventListener("click", getFromDb);
+document.getElementById("clearDbBtn").addEventListener("click", clearDb);
 </script>
 </body>
 </html>

@@ -139,6 +139,19 @@ app.get("/api/local/orders", (req, res) => {
     }
 });
 
+app.post("/api/local/orders/clear", (req, res) => {
+    try {
+        const result = getOrderDatabase().prepare("DELETE FROM orders").run();
+        return res.json({ success: true, deletedCount: result.changes });
+    } catch (error) {
+        console.error("Unable to clear local orders:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to clear orders from the local database"
+        });
+    }
+});
+
 // Create Maybank payment order
 app.post("/api/create-order", async (req, res) => {
     try {

@@ -8,7 +8,8 @@ function loadOrdersRoute(t) {
     const routes = new Map();
     const errors = [];
     const app = {
-        use() {}, post() {}, listen() {},
+        use() {}, listen() {},
+        post(route, ...handlers) { routes.set("POST " + route, handlers.at(-1)); },
         get(route, ...handlers) { routes.set(route, handlers.at(-1)); }
     };
     const express = Object.assign(() => app, {
@@ -29,7 +30,11 @@ function loadOrdersRoute(t) {
         status(code) { this.statusCode = code; return this; },
         json(body) { this.body = JSON.parse(JSON.stringify(body)); return this; }
     };
-    return { handler: routes.get("/api/local/orders"), database, response, errors };
+    return {
+        handler: routes.get("/api/local/orders"),
+        clearHandler: routes.get("POST /api/local/orders/clear"),
+        database, response, errors
+    };
 }
 
 test("local orders returns an empty list from a new database", t => {
@@ -60,6 +65,36 @@ test("local orders logs database errors and returns an explicit failure", t => {
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
         success: false, message: "Unable to load orders from the local database"
+    });
+
+    assert.equal(errors.length, 1);
+});
+
+test("clear local orders deletes every order and preserves the table for future orders", t => {
+    const { handler, clearHandler, database, response } = loadOrdersRoute(t);
+    const insert = database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    for (const id of ["MBB1", "MBB2"]) {
+        insert.run(id, "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+    }
+    clearHandler({}, response);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body, { success: true, deletedCount: 2 });
+    handler({}, response);
+    assert.deepEqual(response.body, { success: true, data: [] });
+    clearHandler({}, response);
+    assert.deepEqual(response.body, { success: true, deletedCount: 0 });
+    insert.run("MBB3", "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+    handler({}, response);
+    assert.equal(response.body.data.length, 1);
+});
+
+test("clear local orders logs database failures without claiming success", t => {
+    const { clearHandler, database, response, errors } = loadOrdersRoute(t);
+    database.exec("DROP TABLE orders");
+    clearHandler({}, response);
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(response.body, {
+        success: false, message: "Unable to clear orders from the local database"
     });
     assert.equal(errors.length, 1);
 });
