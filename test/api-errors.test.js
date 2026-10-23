@@ -39,7 +39,7 @@ test("API errors are JSON over HTTP without changing page responses", async t =>
         for (const method of ["GET", "POST"]) {
             await expectJson("/api/unknown", { method }, 404, "API endpoint not found");
         }
-        await expectJson("/api/local/orders/payment-status", {}, 404, "API endpoint not found");
+        await expectJson("/api/local/orders/payment-status", { method: "PUT" }, 404, "API endpoint not found");
     });
 
     await t.test("registered payment status route returns JSON errors", async () => {
@@ -48,6 +48,18 @@ test("API errors are JSON over HTTP without changing page responses", async t =>
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ orderRefId: "MBB768", paymentStatus: "SUCCESS" })
         }, 404, "Order not found");
+    });
+
+    await t.test("order reference lookup returns the stored order as JSON", async () => {
+        database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            .run("MBB777", "REF777", "INV15486272711", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+        const response = await fetch(baseUrl + "/api/local/orders/MBB777");
+        assert.equal(response.status, 200);
+        assert.match(response.headers.get("content-type"), /^application\/json/);
+        const result = await response.json();
+        assert.equal(result.data.orderRefId, "MBB777");
+        assert.equal(result.data.paymentStatus, "PENDING");
+        await expectJson("/api/local/orders/missing", {}, 404, "Order not found");
     });
 
     await t.test("malformed JSON returns JSON 400 instead of Express HTML", async () => {

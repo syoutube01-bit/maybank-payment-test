@@ -139,6 +139,26 @@ app.get("/api/local/orders", (req, res) => {
     }
 });
 
+app.get("/api/local/orders/:orderRefId", (req, res) => {
+    try {
+        const order = getOrderDatabase().prepare(`
+            SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
+                createdAt, paymentStatus, orderStatus
+            FROM orders WHERE orderRefId = ?
+        `).get(req.params.orderRefId);
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+        return res.json({ success: true, data: order });
+    } catch (error) {
+        console.error("Unable to read local order:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load order from the local database"
+        });
+    }
+});
+
 app.post("/api/local/orders/payment-status", (req, res) => {
     const { orderRefId, paymentStatus } = req.body || {};
     if (typeof orderRefId !== "string" || !orderRefId.trim()) {

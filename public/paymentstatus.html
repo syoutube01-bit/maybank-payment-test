@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#11121b">
 
     <title>Payment Status</title>
 
@@ -19,9 +20,22 @@
             align-items: center;
             justify-content: center;
             font-family: Arial, sans-serif;
-            background: #f2f5f7;
-            color: #263238;
+            background: #11121b;
+            color: #f6f5f2;
             padding: 24px;
+        }
+
+        body::before {
+            position: fixed;
+            z-index: -1;
+            top: -250px;
+            right: -160px;
+            width: 650px;
+            height: 650px;
+            border-radius: 50%;
+            content: "";
+            background: radial-gradient(circle, #6339b94a 0%, #6339b900 70%);
+            pointer-events: none;
         }
 
         .status-box {
@@ -29,11 +43,11 @@
             min-width: 0;
             max-width: 520px;
             text-align: center;
-            background: #fff;
-            border: 1px solid #dce4e9;
-            border-radius: 10px;
+            background: #1b1b29;
+            border: 1px solid #3c3c4a;
+            border-radius: 18px;
             padding: 40px 24px;
-            box-shadow: 0 12px 28px rgba(23, 50, 77, 0.1);
+            box-shadow: 0 12px 40px #9e7afa18;
         }
 
         .status-text {
@@ -42,33 +56,43 @@
             overflow-wrap: anywhere;
             line-height: 1.2;
             font-weight: 800;
-            color: #17324d;
+            color: #b69aff;
         }
 
-        .amount-text {
-            margin-top: 38px;
-            font-size: 32px;
+        .message {
+            color: #d0ceda;
+            line-height: 1.6;
             overflow-wrap: anywhere;
-            line-height: 1.4;
-            font-weight: 700;
-            color: #4d6475;
         }
+
+        .message.error { color: #ffb4b4; }
+        .order-details { margin: 28px 0 0; text-align: left; }
+        .detail-row { padding: 16px 0; border-top: 1px solid #ffffff12; }
+        dt { margin-bottom: 8px; color: #aaa6b8; font-size: 13px; }
+        dd { margin: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+        #paymentStatus { color: #b69aff; }
 
         @media (max-width: 600px) {
             body { padding: 20px 16px; }
             .status-box { padding: 28px 16px; }
-            .status-text, .amount-text { font-size: 24px; }
-            .amount-text { margin-top: 24px; }
+            .status-text { font-size: 24px; }
         }
     </style>
 </head>
 
 <body>
 
-<div class="status-box">
+<main class="status-box">
     <h1 class="status-text" id="statusText">Payment Status</h1>
-    <div class="amount-text" id="amountText"></div>
-</div>
+    <p class="message" id="message" role="status" aria-live="polite">Loading order details...</p>
+    <dl class="order-details" id="orderDetails" hidden>
+        <div class="detail-row"><dt>Order Reference Id</dt><dd id="orderRefId"></dd></div>
+        <div class="detail-row"><dt>Partner Reference Id</dt><dd id="partnerReferenceId"></dd></div>
+        <div class="detail-row"><dt>Partner Invoice Id</dt><dd id="partnerInvoiceId"></dd></div>
+        <div class="detail-row"><dt>Amount</dt><dd id="amount"></dd></div>
+        <div class="detail-row"><dt>Payment Status</dt><dd id="paymentStatus"></dd></div>
+    </dl>
+</main>
 
 <script>
 
@@ -83,21 +107,34 @@ function getQueryParam(name) {
     return value.trim();
 }
 
-window.addEventListener("DOMContentLoaded", function () {
-    const status = getQueryParam("status");
-    const amount = getQueryParam("amount");
+window.addEventListener("DOMContentLoaded", async function () {
+    const message = document.getElementById("message");
+    const orderDetails = document.getElementById("orderDetails");
+    const orderId = getQueryParam("orderId") || getQueryParam("oid");
+    if (!orderId) {
+        message.textContent = "An orderId is required to load payment details.";
+        message.classList.add("error");
+        return;
+    }
+    const orderRefId = orderId.startsWith("MBB") ? orderId : "MBB" + orderId;
 
-    const statusTextEl = document.getElementById("statusText");
-    const amountTextEl = document.getElementById("amountText");
-
-    statusTextEl.textContent = status || "Payment Status";
-
-    if (amount) {
-        amountTextEl.textContent = "Amount: " + amount;
-        amountTextEl.style.display = "block";
-    } else {
-        amountTextEl.textContent = "";
-        amountTextEl.style.display = "none";
+    try {
+        const response = await fetch("/api/local/orders/" + encodeURIComponent(orderRefId));
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || "Unable to load order details.");
+        }
+        const order = result.data;
+        for (const field of ["orderRefId", "partnerReferenceId", "partnerInvoiceId", "paymentStatus"]) {
+            document.getElementById(field).textContent = order[field];
+        }
+        document.getElementById("amount").textContent = order.currency + " " + order.amount;
+        orderDetails.hidden = false;
+        message.hidden = true;
+    } catch (error) {
+        console.error("Unable to load payment details:", error);
+        message.textContent = error.message;
+        message.classList.add("error");
     }
 });
 

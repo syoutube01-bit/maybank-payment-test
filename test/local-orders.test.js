@@ -32,6 +32,7 @@ function loadOrdersRoute(t) {
     };
     return {
         handler: routes.get("/api/local/orders"),
+        orderHandler: routes.get("/api/local/orders/:orderRefId"),
         clearHandler: routes.get("POST /api/local/orders/clear"),
         updatePaymentStatusHandler: routes.get("POST /api/local/orders/payment-status"),
         database, response, errors
@@ -43,6 +44,38 @@ test("local orders returns an empty list from a new database", t => {
     handler({}, response);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body, { success: true, data: [] });
+});
+
+test("order lookup returns saved details only for the exact reference", t => {
+    const { orderHandler, database, response } = loadOrdersRoute(t);
+    database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run("MBB777", "REF777", "INV15486272711", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
+    orderHandler({ params: { orderRefId: "MBB777" } }, response);
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(response.body, {
+        success: true,
+        data: {
+            orderRefId: "MBB777", partnerReferenceId: "REF777", partnerInvoiceId: "INV15486272711",
+            currency: "MYR", amount: 100, createdAt: "2026-10-23",
+            paymentStatus: "PENDING", orderStatus: "CREATED"
+        }
+    });
+    for (const orderRefId of ["missing", "MBB777' OR 1=1 --"]) {
+        orderHandler({ params: { orderRefId } }, response);
+        assert.equal(response.statusCode, 404);
+        assert.deepEqual(response.body, { success: false, message: "Order not found" });
+    }
+});
+
+test("order lookup logs database failures and returns JSON errors", t => {
+    const { orderHandler, database, response, errors } = loadOrdersRoute(t);
+    database.exec("DROP TABLE orders");
+    orderHandler({ params: { orderRefId: "MBB777" } }, response);
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(response.body, {
+        success: false, message: "Unable to load order from the local database"
+    });
+    assert.equal(errors.length, 1);
 });
 
 test("local orders returns all eight columns, newest first with deterministic ties", t => {
