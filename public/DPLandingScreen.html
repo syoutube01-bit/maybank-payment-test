@@ -65,6 +65,13 @@
                                 <th scope="col">Created At</th>
                                 <th scope="col">Payment Status</th>
                                 <th scope="col">Order Status</th>
+                                <th scope="col">Partner Code</th>
+                                <th scope="col">Partner Name</th>
+                                <th scope="col">Partner Invoice</th>
+                                <th scope="col">Partner Reference Number</th>
+                                <th scope="col">Status Description</th>
+                                <th scope="col">Completed Date Time</th>
+                                <th scope="col">Payment Status Code</th>
                             </tr>
                         </thead>
                         <tbody id="dbOrdersBody"></tbody>
@@ -252,7 +259,9 @@ async function getFromDb() {
         }
         const columns = [
             "orderRefId", "partnerReferenceId", "partnerInvoiceId", "currency",
-            "amount", "createdAt", "paymentStatus", "orderStatus"
+            "amount", "createdAt", "paymentStatus", "orderStatus", "partnerCode",
+            "partnerName", "PartnerInvoice", "ParnerRefNumber", "statusDescription",
+            "completedDateTime", "PaymentStatusCode"
         ];
         const rows = document.createDocumentFragment();
         for (const order of data.data) {

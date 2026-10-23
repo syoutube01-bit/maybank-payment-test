@@ -51,7 +51,10 @@ test("API errors are JSON over HTTP without changing page responses", async t =>
     });
 
     await t.test("order reference lookup returns the stored order as JSON", async () => {
-        database.prepare("INSERT INTO orders VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        database.prepare(`INSERT INTO orders (
+            orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
+            createdAt, paymentStatus, orderStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
             .run("MBB777", "REF777", "INV15486272711", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
         const response = await fetch(baseUrl + "/api/local/orders/MBB777");
         assert.equal(response.status, 200);

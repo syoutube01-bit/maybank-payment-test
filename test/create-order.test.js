@@ -97,7 +97,14 @@ test("create order saves the returned order details in the local database", asyn
         amount: 100,
         createdAt: "2026-10-23T13:51:55.110459",
         paymentStatus: "PENDING",
-        orderStatus: "CREATED"
+        orderStatus: "CREATED",
+        partnerCode: null,
+        partnerName: null,
+        PartnerInvoice: "INV06640793156",
+        ParnerRefNumber: "REF20260522",
+        statusDescription: null,
+        completedDateTime: null,
+        PaymentStatusCode: null
     };
     const { handler, dbPath, cleanup } = loadCreateOrderRoute(undefined, orderResponse);
     const response = createResponse();

@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(__dirname, "..", "public", "paymentstatus
 const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
 const savedOrder = {
     orderRefId: "MBB777", partnerReferenceId: "REF777", partnerInvoiceId: "INV15486272711",
-    currency: "MYR", amount: 100, paymentStatus: "PENDING"
+    currency: "MYR", amount: 100, createdAt: "2026-07-17T07:29:55.000Z", paymentStatus: "PENDING"
 };
 
 async function loadPage(search, fetchResult = { ok: true, success: true, data: savedOrder }) {
@@ -54,6 +54,8 @@ test("payment page prefixes orderId and displays database values, not URL status
         assert.equal(elements.get(field).textContent, savedOrder[field]);
     }
     assert.equal(elements.get("amount").textContent, "MYR 100");
+    assert.equal(elements.get("createdAt").textContent, "2026-07-17");
+    assert.equal(elements.get("createdAt").dateTime, savedOrder.createdAt);
     assert.equal(elements.get("orderDetails").hidden, false);
     assert.equal(elements.get("message").hidden, true);
 });

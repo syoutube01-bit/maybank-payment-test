@@ -24,9 +24,27 @@ function getOrderDatabase() {
                 amount INTEGER NOT NULL,
                 createdAt TEXT NOT NULL,
                 paymentStatus TEXT NOT NULL,
-                orderStatus TEXT NOT NULL
+                orderStatus TEXT NOT NULL,
+                partnerCode TEXT,
+                partnerName TEXT,
+                PartnerInvoice TEXT,
+                ParnerRefNumber TEXT,
+                statusDescription TEXT,
+                completedDateTime TEXT,
+                PaymentStatusCode TEXT
             )
         `);
+        const existingColumns = new Set(
+            orderDatabase.prepare("PRAGMA table_info(orders)").all().map(column => column.name)
+        );
+        for (const column of [
+            "partnerCode", "partnerName", "PartnerInvoice", "ParnerRefNumber",
+            "statusDescription", "completedDateTime", "PaymentStatusCode"
+        ]) {
+            if (!existingColumns.has(column)) {
+                orderDatabase.exec(`ALTER TABLE orders ADD COLUMN ${column} TEXT`);
+            }
+        }
     }
     return orderDatabase;
 }
@@ -53,27 +71,43 @@ function persistOrderResponse(responseData, requestPayload = {}) {
 
     const storedOrder = {
         orderRefId: order.orderRefId || order.orderId,
-        partnerReferenceId: order.partnerReferenceId || requestPayload.partnerReferenceId,
-        partnerInvoiceId: order.partnerInvoiceId || requestPayload.partnerInvoiceId,
+        partnerReferenceId: order.partnerReferenceId || order.ParnerRefNumber ||
+            requestPayload.partnerReferenceId || requestPayload.ParnerRefNumber,
+        partnerInvoiceId: order.partnerInvoiceId || order.PartnerInvoice ||
+            requestPayload.partnerInvoiceId || requestPayload.PartnerInvoice,
         currency: order.currency || requestPayload.currency,
         amount: order.amount ?? requestPayload.amount,
         createdAt: order.createdAt || new Date().toISOString(),
-        paymentStatus: order.paymentStatus || "PENDING",
-        orderStatus: order.orderStatus || "CREATED"
+        paymentStatus: order.paymentStatus || order.PaymentStatus || "PENDING",
+        orderStatus: order.orderStatus || "CREATED",
+        partnerCode: order.partnerCode ?? requestPayload.partnerCode ?? null,
+        partnerName: order.partnerName ?? requestPayload.partnerName ?? null,
+        PartnerInvoice: order.PartnerInvoice || order.partnerInvoiceId ||
+            requestPayload.PartnerInvoice || requestPayload.partnerInvoiceId || null,
+        ParnerRefNumber: order.ParnerRefNumber || order.partnerReferenceId ||
+            requestPayload.ParnerRefNumber || requestPayload.partnerReferenceId || null,
+        statusDescription: order.statusDescription ?? requestPayload.statusDescription ?? null,
+        completedDateTime: order.completedDateTime ?? requestPayload.completedDateTime ?? null,
+        PaymentStatusCode: order.PaymentStatusCode ?? requestPayload.PaymentStatusCode ?? null
     };
+    if (typeof storedOrder.amount === "string" && /^\d+(?:\.\d{1,2})?$/.test(storedOrder.amount)) {
+        storedOrder.amount = Number(storedOrder.amount);
+    }
     if (typeof storedOrder.orderRefId !== "string" || !storedOrder.orderRefId ||
         typeof storedOrder.partnerReferenceId !== "string" || !storedOrder.partnerReferenceId ||
         typeof storedOrder.partnerInvoiceId !== "string" || !storedOrder.partnerInvoiceId ||
         typeof storedOrder.currency !== "string" || !storedOrder.currency ||
-        !Number.isSafeInteger(storedOrder.amount) || storedOrder.amount <= 0) {
+        typeof storedOrder.amount !== "number" || !Number.isFinite(storedOrder.amount) || storedOrder.amount <= 0) {
         throw new Error("Create order response is missing required order details for local storage.");
     }
 
     getOrderDatabase().prepare(`
         INSERT INTO orders (
             orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-            createdAt, paymentStatus, orderStatus
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
+            PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
+            PaymentStatusCode
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(orderRefId) DO UPDATE SET
             partnerReferenceId = excluded.partnerReferenceId,
             partnerInvoiceId = excluded.partnerInvoiceId,
@@ -81,7 +115,14 @@ function persistOrderResponse(responseData, requestPayload = {}) {
             amount = excluded.amount,
             createdAt = excluded.createdAt,
             paymentStatus = excluded.paymentStatus,
-            orderStatus = excluded.orderStatus
+            orderStatus = excluded.orderStatus,
+            partnerCode = excluded.partnerCode,
+            partnerName = excluded.partnerName,
+            PartnerInvoice = excluded.PartnerInvoice,
+            ParnerRefNumber = excluded.ParnerRefNumber,
+            statusDescription = excluded.statusDescription,
+            completedDateTime = excluded.completedDateTime,
+            PaymentStatusCode = excluded.PaymentStatusCode
     `).run(
         storedOrder.orderRefId,
         storedOrder.partnerReferenceId,
@@ -90,7 +131,14 @@ function persistOrderResponse(responseData, requestPayload = {}) {
         storedOrder.amount,
         storedOrder.createdAt,
         storedOrder.paymentStatus,
-        storedOrder.orderStatus
+        storedOrder.orderStatus,
+        storedOrder.partnerCode,
+        storedOrder.partnerName,
+        storedOrder.PartnerInvoice,
+        storedOrder.ParnerRefNumber,
+        storedOrder.statusDescription,
+        storedOrder.completedDateTime,
+        storedOrder.PaymentStatusCode
     );
 }
 
@@ -125,7 +173,9 @@ app.get("/api/local/orders", (req, res) => {
     try {
         const orders = getOrderDatabase().prepare(`
             SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-                createdAt, paymentStatus, orderStatus
+                createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
+                PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
+                PaymentStatusCode
             FROM orders
             ORDER BY createdAt DESC, orderRefId DESC
         `).all();
@@ -143,7 +193,9 @@ app.get("/api/local/orders/:orderRefId", (req, res) => {
     try {
         const order = getOrderDatabase().prepare(`
             SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-                createdAt, paymentStatus, orderStatus
+                createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
+                PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
+                PaymentStatusCode
             FROM orders WHERE orderRefId = ?
         `).get(req.params.orderRefId);
         if (!order) {
@@ -160,7 +212,15 @@ app.get("/api/local/orders/:orderRefId", (req, res) => {
 });
 
 app.post("/api/local/orders/payment-status", (req, res) => {
-    const { orderRefId, paymentStatus } = req.body || {};
+    const body = req.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return res.status(400).json({
+            success: false,
+            message: "Request body must be a JSON object"
+        });
+    }
+    const { orderRefId } = body;
+    const paymentStatus = body.paymentStatus ?? body.PaymentStatus;
     if (typeof orderRefId !== "string" || !orderRefId.trim()) {
         return res.status(400).json({
             success: false,
@@ -174,10 +234,84 @@ app.post("/api/local/orders/payment-status", (req, res) => {
         });
     }
 
+    const optionalStrings = {
+        partnerCode: body.partnerCode,
+        partnerName: body.partnerName,
+        PartnerInvoice: body.PartnerInvoice ?? body.partnerInvoiceId,
+        ParnerRefNumber: body.ParnerRefNumber ?? body.partnerReferenceId,
+        currency: body.currency,
+        createdAt: body.createdAt,
+        statusDescription: body.statusDescription,
+        completedDateTime: body.completedDateTime,
+        PaymentStatusCode: body.PaymentStatusCode,
+        orderStatus: body.orderStatus
+    };
+    for (const [field, value] of Object.entries(optionalStrings)) {
+        if (value !== undefined && value !== null && typeof value !== "string") {
+            return res.status(400).json({
+                success: false,
+                message: `${field} must be a string`
+            });
+        }
+    }
+    let createdAt = optionalStrings.createdAt;
+    if (createdAt !== undefined && createdAt !== null) {
+        if (typeof createdAt !== "string" || !createdAt.trim() || !Number.isFinite(Date.parse(createdAt))) {
+            return res.status(400).json({
+                success: false,
+                message: "createdAt must be a valid date string"
+            });
+        }
+        createdAt = new Date(createdAt).toISOString();
+    }
+    let amount = body.amount;
+    if (amount !== undefined && amount !== null) {
+        if (typeof amount === "string" && /^\d+(?:\.\d{1,2})?$/.test(amount)) {
+            amount = Number(amount);
+        }
+        if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "amount must be a positive number"
+            });
+        }
+    }
+
     try {
         const result = getOrderDatabase().prepare(`
-            UPDATE orders SET paymentStatus = ? WHERE orderRefId = ?
-        `).run(paymentStatus, orderRefId);
+            UPDATE orders SET
+                paymentStatus = ?,
+                partnerCode = COALESCE(?, partnerCode),
+                partnerName = COALESCE(?, partnerName),
+                partnerInvoiceId = COALESCE(?, partnerInvoiceId),
+                PartnerInvoice = COALESCE(?, PartnerInvoice),
+                partnerReferenceId = COALESCE(?, partnerReferenceId),
+                ParnerRefNumber = COALESCE(?, ParnerRefNumber),
+                currency = COALESCE(?, currency),
+                amount = COALESCE(?, amount),
+                createdAt = COALESCE(?, createdAt),
+                statusDescription = COALESCE(?, statusDescription),
+                completedDateTime = COALESCE(?, completedDateTime),
+                PaymentStatusCode = COALESCE(?, PaymentStatusCode),
+                orderStatus = COALESCE(?, orderStatus)
+            WHERE orderRefId = ?
+        `).run(
+            paymentStatus,
+            optionalStrings.partnerCode ?? null,
+            optionalStrings.partnerName ?? null,
+            optionalStrings.PartnerInvoice ?? null,
+            optionalStrings.PartnerInvoice ?? null,
+            optionalStrings.ParnerRefNumber ?? null,
+            optionalStrings.ParnerRefNumber ?? null,
+            optionalStrings.currency ?? null,
+            amount ?? null,
+            createdAt ?? null,
+            optionalStrings.statusDescription ?? null,
+            optionalStrings.completedDateTime ?? null,
+            optionalStrings.PaymentStatusCode ?? null,
+            optionalStrings.orderStatus ?? null,
+            orderRefId
+        );
         if (result.changes === 0) {
             return res.status(404).json({
                 success: false,

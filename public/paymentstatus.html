@@ -90,6 +90,7 @@
         <div class="detail-row"><dt>Partner Reference Id</dt><dd id="partnerReferenceId"></dd></div>
         <div class="detail-row"><dt>Partner Invoice Id</dt><dd id="partnerInvoiceId"></dd></div>
         <div class="detail-row"><dt>Amount</dt><dd id="amount"></dd></div>
+        <div class="detail-row"><dt>Created At</dt><dd><time id="createdAt"></time></dd></div>
         <div class="detail-row"><dt>Payment Status</dt><dd id="paymentStatus"></dd></div>
     </dl>
 </main>
@@ -129,6 +130,12 @@ window.addEventListener("DOMContentLoaded", async function () {
             document.getElementById(field).textContent = order[field];
         }
         document.getElementById("amount").textContent = order.currency + " " + order.amount;
+        const createdAt = order.createdAt ? new Date(order.createdAt) : null;
+        if (createdAt && Number.isFinite(createdAt.getTime())) {
+            const createdAtElement = document.getElementById("createdAt");
+            createdAtElement.dateTime = createdAt.toISOString();
+            createdAtElement.textContent = createdAt.toISOString().slice(0, 10);
+        }
         orderDetails.hidden = false;
         message.hidden = true;
     } catch (error) {
