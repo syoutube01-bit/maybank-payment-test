@@ -60,9 +60,9 @@ function webInitJwt(claims) {
     return "eyJhbGciOiJSUzI1NiJ9." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".signature";
 }
 
-test("Buy logs digitalID as the user ID without logging or changing the native JWT", async () => {
+test("Buy logs did as the user ID without logging or changing the native JWT", async () => {
     const userId = "user-\u7528\u6237-\u083e\u083f";
-    const token = webInitJwt({ digitalID: userId, sub: "different-user" });
+    const token = webInitJwt({ did: userId, digitalID: "different-user", sub: "different-user" });
     const requests = [];
     const checkout = loadCheckout({
         bridge: { async callAPI() { return { webInitToken: token }; } },
@@ -87,10 +87,10 @@ for (const token of [
     "header._w.signature",
     webInitJwt(null),
     webInitJwt({}),
-    webInitJwt({ digitalId: "wrong-case" }),
-    webInitJwt({ digitalID: "" }),
-    webInitJwt({ digitalID: " " }),
-    webInitJwt({ digitalID: 123 })
+    webInitJwt({ digitalID: "legacy-claim" }),
+    webInitJwt({ did: "" }),
+    webInitJwt({ did: " " }),
+    webInitJwt({ did: 123 })
 ]) {
     test(`Buy reports an unreadable user ID without blocking payment (${token})`, async () => {
         const checkout = loadCheckout({
@@ -135,7 +135,7 @@ for (const [platform, destination] of [["iPhone", "ios"], ["Linux aarch64", "and
         assert.equal(options.headers["x-webinit-token"], "init-token");
         assert.equal(options.headers["Content-Type"], "text/plain");
         const body = JSON.parse(options.body);
-        assert.equal(body.amount, 27.90);
+        assert.equal(body.amount, 100);
         assert.equal(body.currency, "MYR");
         assert.equal(body.partnerReferenceId, "REF20260522");
         assert.equal(body.remark, "CTOS Score Report");

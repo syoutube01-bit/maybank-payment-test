@@ -379,11 +379,11 @@
                 const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
                 const bytes = Uint8Array.from(atob(payload), character => character.charCodeAt(0));
                 const claims = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-                if (typeof claims?.digitalID !== "string" || !claims.digitalID.trim()) {
-                    throw new Error("Web-init JWT has no valid digitalID claim.");
+                if (typeof claims?.did !== "string" || !claims.did.trim()) {
+                    throw new Error("Web-init JWT has no valid did claim.");
                 }
                 // Decoded only for diagnostics; this is not a verified identity.
-                console.log("User ID:", claims.digitalID);
+                console.log("User ID:", claims.did);
             } catch (error) {
                 console.error("Unable to read user ID from web-init JWT: " + error.message);
             }

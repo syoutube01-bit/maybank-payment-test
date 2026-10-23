@@ -8,7 +8,7 @@ const script = fs.readFileSync(path.join(__dirname, "../public/payment-session.j
 
 function loadSession(bridge) {
     const window = { nativeMessageService: bridge };
-    vm.runInNewContext(script, { window });
+    vm.runInNewContext(script, { window, atob });
     return window;
 }
 
@@ -52,6 +52,27 @@ test("blank or malformed native token responses are not cached", async () => {
         assert.equal(await window.paymentSession.getWebInitToken(), "valid-token");
         assert.equal(calls, 2);
     }
+});
+
+function jwt(claims) {
+    return "header." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".sig";
+}
+
+test("an unexpired token is reused and an expiring token is replaced by a new native token", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const tokens = [jwt({ did: "user-a", exp: now + 3600 }), jwt({ did: "user-a", exp: now + 10 }),
+        jwt({ did: "user-a", exp: now + 3600 })];
+    let calls = 0;
+    const window = loadSession({ async callAPI() { return { webInitToken: tokens[calls++] }; } });
+    assert.equal(await window.paymentSession.getWebInitToken(), tokens[0]);
+    assert.equal(await window.paymentSession.getWebInitToken(), tokens[0]);
+    assert.equal(calls, 1);
+
+    const expiring = loadSession({ async callAPI() { return { webInitToken: tokens[calls++] }; } });
+    assert.equal(await expiring.paymentSession.getWebInitToken(), tokens[1]);
+    assert.equal(await expiring.paymentSession.getWebInitToken(), tokens[2]);
+    assert.equal(await expiring.paymentSession.getWebInitToken(), tokens[2]);
+    assert.equal(calls, 3);
 });
 
 test("a new page session retrieves its own native token", async () => {
