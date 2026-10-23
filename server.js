@@ -208,7 +208,7 @@ app.get("/api/local/orders", (req, res) => {
             SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
                 createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
                 PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
-                PaymentStatusCode
+                PaymentStatusCode, digitalId
             FROM orders
             ORDER BY createdAt DESC, orderRefId DESC
         `).all();

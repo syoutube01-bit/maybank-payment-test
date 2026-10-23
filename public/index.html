@@ -58,6 +58,7 @@
                         <th scope="col">Status Description</th>
                         <th scope="col">Completed Date Time</th>
                         <th scope="col">Payment Status Code</th>
+                        <th scope="col">dID</th>
                     </tr>
                 </thead>
                 <tbody id="dbOrdersBody"></tbody>
@@ -108,7 +109,7 @@
                     "orderRefId", "partnerReferenceId", "partnerInvoiceId", "currency",
                     "amount", "createdAt", "paymentStatus", "orderStatus", "partnerCode",
                     "partnerName", "PartnerInvoice", "ParnerRefNumber", "statusDescription",
-                    "completedDateTime", "PaymentStatusCode"
+                    "completedDateTime", "PaymentStatusCode", "digitalId"
                 ];
                 const rows = document.createDocumentFragment();
                 for (const order of data.data) {

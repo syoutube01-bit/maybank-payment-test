@@ -87,7 +87,7 @@ test("Get from DB renders all columns as text without requesting a token", async
         partnerCode: "PAT001", partnerName: "PAT001 Demo Partner",
         PartnerInvoice: "INV1", ParnerRefNumber: "REF1",
         statusDescription: "Payment completed successfully",
-        completedDateTime: "2026-10-23T07:29:55Z", PaymentStatusCode: "0000"
+        completedDateTime: "2026-10-23T07:29:55Z", PaymentStatusCode: "0000", digitalId: "user-a"
     };
     const page = loadPage({ ordersFetch: async () => response({ success: true, data: [order] }) });
     await page.click("getFromDbBtn");
