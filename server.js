@@ -5,12 +5,42 @@ const fs = require("node:fs");
 const crypto = require("node:crypto");
 const { Buffer } = require("node:buffer");
 const { DatabaseSync } = require("node:sqlite");
+const { Pool } = require("pg");
 const { CompactSign, CompactEncrypt, compactDecrypt, compactVerify } = require("jose");
 const { rateLimit } = require("express-rate-limit");
 
 const app = express();
 const databasePath = process.env.LOCAL_DB_PATH || path.join(__dirname, "data", "orders.sqlite");
+const orderColumns = [
+    "order_ref_id", "partner_reference_id", "partner_invoice_id", "currency", "amount",
+    "created_at", "payment_status", "order_status", "partner_code", "partner_name",
+    "partner_invoice", "parner_ref_number", "status_description", "completed_date_time",
+    "payment_status_code", "digital_id"
+];
+const orderFieldNames = {
+    order_ref_id: "orderRefId",
+    partner_reference_id: "partnerReferenceId",
+    partner_invoice_id: "partnerInvoiceId",
+    created_at: "createdAt",
+    payment_status: "paymentStatus",
+    order_status: "orderStatus",
+    partner_code: "partnerCode",
+    partner_name: "partnerName",
+    partner_invoice: "PartnerInvoice",
+    parner_ref_number: "ParnerRefNumber",
+    status_description: "statusDescription",
+    completed_date_time: "completedDateTime",
+    payment_status_code: "PaymentStatusCode",
+    digital_id: "digitalId"
+};
 let orderDatabase;
+let schemaInitialization;
+const postgresPool = process.env.DATABASE_URL
+    ? new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ...(process.env.PGSSL === "true" ? { ssl: { rejectUnauthorized: false } } : {})
+    })
+    : null;
 
 function getOrderDatabase() {
     if (!orderDatabase) {
@@ -18,40 +48,116 @@ function getOrderDatabase() {
         orderDatabase = new DatabaseSync(databasePath);
         orderDatabase.exec(`
             CREATE TABLE IF NOT EXISTS orders (
-                orderRefId TEXT PRIMARY KEY,
-                partnerReferenceId TEXT NOT NULL,
-                partnerInvoiceId TEXT NOT NULL,
+                order_ref_id TEXT PRIMARY KEY,
+                partner_reference_id TEXT NOT NULL,
+                partner_invoice_id TEXT NOT NULL,
                 currency TEXT NOT NULL,
                 amount INTEGER NOT NULL,
-                createdAt TEXT NOT NULL,
-                paymentStatus TEXT NOT NULL,
-                orderStatus TEXT NOT NULL,
-                partnerCode TEXT,
-                partnerName TEXT,
-                PartnerInvoice TEXT,
-                ParnerRefNumber TEXT,
-                statusDescription TEXT,
-                completedDateTime TEXT,
-                PaymentStatusCode TEXT,
-                digitalId TEXT
+                created_at TEXT NOT NULL,
+                payment_status TEXT NOT NULL,
+                order_status TEXT NOT NULL,
+                partner_code TEXT,
+                partner_name TEXT,
+                partner_invoice TEXT,
+                parner_ref_number TEXT,
+                status_description TEXT,
+                completed_date_time TEXT,
+                payment_status_code TEXT,
+                digital_id TEXT
             )
         `);
         const existingColumns = new Set(
             orderDatabase.prepare("PRAGMA table_info(orders)").all().map(column => column.name)
         );
-        for (const column of [
-            "partnerCode", "partnerName", "PartnerInvoice", "ParnerRefNumber",
-            "statusDescription", "completedDateTime", "PaymentStatusCode", "digitalId"
-        ]) {
+        const legacyColumnNames = {
+            orderRefId: "order_ref_id",
+            partnerReferenceId: "partner_reference_id",
+            partnerInvoiceId: "partner_invoice_id",
+            createdAt: "created_at",
+            paymentStatus: "payment_status",
+            orderStatus: "order_status",
+            partnerCode: "partner_code",
+            partnerName: "partner_name",
+            PartnerInvoice: "partner_invoice",
+            ParnerRefNumber: "parner_ref_number",
+            statusDescription: "status_description",
+            completedDateTime: "completed_date_time",
+            PaymentStatusCode: "payment_status_code",
+            digitalId: "digital_id"
+        };
+        for (const [legacyName, columnName] of Object.entries(legacyColumnNames)) {
+            if (existingColumns.has(legacyName) && !existingColumns.has(columnName)) {
+                orderDatabase.exec(`ALTER TABLE orders RENAME COLUMN "${legacyName}" TO "${columnName}"`);
+                existingColumns.delete(legacyName);
+                existingColumns.add(columnName);
+            }
+        }
+        for (const column of orderColumns) {
             if (!existingColumns.has(column)) {
-                orderDatabase.exec(`ALTER TABLE orders ADD COLUMN ${column} TEXT`);
+                orderDatabase.exec(`ALTER TABLE orders ADD COLUMN ${column} ${column === "amount" ? "INTEGER" : "TEXT"}`);
             }
         }
         orderDatabase.exec(
-            "CREATE INDEX IF NOT EXISTS idx_orders_digitalId ON orders (digitalId, createdAt)"
+            "CREATE INDEX IF NOT EXISTS idx_orders_digital_id ON orders (digital_id, created_at)"
         );
     }
     return orderDatabase;
+}
+
+async function initializePostgresSchema() {
+    if (!schemaInitialization) {
+        schemaInitialization = postgresPool.query(`
+            CREATE TABLE IF NOT EXISTS orders (
+                order_ref_id TEXT PRIMARY KEY,
+                partner_reference_id TEXT NOT NULL,
+                partner_invoice_id TEXT NOT NULL,
+                currency TEXT NOT NULL,
+                amount INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                payment_status TEXT NOT NULL,
+                order_status TEXT NOT NULL,
+                partner_code TEXT,
+                partner_name TEXT,
+                partner_invoice TEXT,
+                parner_ref_number TEXT,
+                status_description TEXT,
+                completed_date_time TEXT,
+                payment_status_code TEXT,
+                digital_id TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_orders_digital_id
+                ON orders (digital_id, created_at)
+        `).catch(error => {
+            schemaInitialization = null;
+            throw error;
+        });
+    }
+    await schemaInitialization;
+}
+
+async function queryOrderDatabase(sql, parameters = []) {
+    if (postgresPool) {
+        await initializePostgresSchema();
+        let index = 0;
+        const postgresSql = sql.replace(/\?/g, () => `$${++index}`);
+        const result = await postgresPool.query(postgresSql, parameters);
+        return { rows: result.rows, rowCount: result.rowCount };
+    }
+
+    const statement = getOrderDatabase().prepare(sql);
+    if (/^\s*SELECT\b/i.test(sql)) {
+        const rows = statement.all(...parameters);
+        return { rows, rowCount: rows.length };
+    }
+    const result = statement.run(...parameters);
+    return { rows: [], rowCount: result.changes };
+}
+
+function mapOrderFields(order) {
+    return Object.fromEntries(Object.entries(order).map(([column, value]) => [
+        orderFieldNames[column] || column,
+        value
+    ]));
 }
 
 // Decodes (without verifying the signature) the did claim from the MAE web-init JWT.
@@ -91,7 +197,7 @@ const DP_TOKEN_URL = "https://staging.api.maybank.com/api/oauth2/v8/clientcred/t
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-function persistOrderResponse(responseData, requestPayload = {}, digitalId = null) {
+async function persistOrderResponse(responseData, requestPayload = {}, digitalId = null) {
     let order = responseData;
     if (typeof order === "string") {
         order = JSON.parse(order);
@@ -132,30 +238,30 @@ function persistOrderResponse(responseData, requestPayload = {}, digitalId = nul
         throw new Error("Create order response is missing required order details for local storage.");
     }
 
-    getOrderDatabase().prepare(`
+    await queryOrderDatabase(`
         INSERT INTO orders (
-            orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-            createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
-            PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
-            PaymentStatusCode, digitalId
+            order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+            created_at, payment_status, order_status, partner_code, partner_name,
+            partner_invoice, parner_ref_number, status_description, completed_date_time,
+            payment_status_code, digital_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(orderRefId) DO UPDATE SET
-            digitalId = COALESCE(excluded.digitalId, digitalId),
-            partnerReferenceId = excluded.partnerReferenceId,
-            partnerInvoiceId = excluded.partnerInvoiceId,
+        ON CONFLICT(order_ref_id) DO UPDATE SET
+            digital_id = COALESCE(excluded.digital_id, orders.digital_id),
+            partner_reference_id = excluded.partner_reference_id,
+            partner_invoice_id = excluded.partner_invoice_id,
             currency = excluded.currency,
             amount = excluded.amount,
-            createdAt = excluded.createdAt,
-            paymentStatus = excluded.paymentStatus,
-            orderStatus = excluded.orderStatus,
-            partnerCode = excluded.partnerCode,
-            partnerName = excluded.partnerName,
-            PartnerInvoice = excluded.PartnerInvoice,
-            ParnerRefNumber = excluded.ParnerRefNumber,
-            statusDescription = excluded.statusDescription,
-            completedDateTime = excluded.completedDateTime,
-            PaymentStatusCode = excluded.PaymentStatusCode
-    `).run(
+            created_at = excluded.created_at,
+            payment_status = excluded.payment_status,
+            order_status = excluded.order_status,
+            partner_code = excluded.partner_code,
+            partner_name = excluded.partner_name,
+            partner_invoice = excluded.partner_invoice,
+            parner_ref_number = excluded.parner_ref_number,
+            status_description = excluded.status_description,
+            completed_date_time = excluded.completed_date_time,
+            payment_status_code = excluded.payment_status_code
+    `, [
         storedOrder.orderRefId,
         storedOrder.partnerReferenceId,
         storedOrder.partnerInvoiceId,
@@ -172,7 +278,7 @@ function persistOrderResponse(responseData, requestPayload = {}, digitalId = nul
         storedOrder.completedDateTime,
         storedOrder.PaymentStatusCode,
         digitalId
-    );
+    ]);
 }
 
 const partnerLandingPages = {
@@ -202,17 +308,14 @@ app.get("/paymentstatus", (req, res) => {
     res.sendFile(path.join(__dirname, "public", "paymentstatus.html"));
 });
 
-app.get("/api/local/orders", (req, res) => {
+app.get("/api/local/orders", async (req, res) => {
     try {
-        const orders = getOrderDatabase().prepare(`
-            SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-                createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
-                PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
-                PaymentStatusCode, digitalId
+        const { rows } = await queryOrderDatabase(`
+            SELECT ${orderColumns.join(", ")}
             FROM orders
-            ORDER BY createdAt DESC, orderRefId DESC
-        `).all();
-        return res.json({ success: true, data: orders });
+            ORDER BY created_at DESC, order_ref_id DESC
+        `);
+        return res.json({ success: true, data: rows.map(mapOrderFields) });
     } catch (error) {
         console.error("Unable to read local orders:", error);
         return res.status(500).json({
@@ -222,19 +325,17 @@ app.get("/api/local/orders", (req, res) => {
     }
 });
 
-app.get("/api/local/orders/:orderRefId", (req, res) => {
+app.get("/api/local/orders/:orderRefId", async (req, res) => {
     try {
-        const order = getOrderDatabase().prepare(`
-            SELECT orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-                createdAt, paymentStatus, orderStatus, partnerCode, partnerName,
-                PartnerInvoice, ParnerRefNumber, statusDescription, completedDateTime,
-                PaymentStatusCode
-            FROM orders WHERE orderRefId = ?
-        `).get(req.params.orderRefId);
+        const { rows } = await queryOrderDatabase(`
+            SELECT ${orderColumns.filter(column => column !== "digital_id").join(", ")}
+            FROM orders WHERE order_ref_id = ?
+        `, [req.params.orderRefId]);
+        const order = rows[0];
         if (!order) {
             return res.status(404).json({ success: false, message: "Order not found" });
         }
-        return res.json({ success: true, data: order });
+        return res.json({ success: true, data: mapOrderFields(order) });
     } catch (error) {
         console.error("Unable to read local order:", error);
         return res.status(500).json({
@@ -245,7 +346,7 @@ app.get("/api/local/orders/:orderRefId", (req, res) => {
 });
 
 // Orders of the logged-in microsite user, identified by did in the web-init JWT.
-app.get("/api/my/orders", (req, res) => {
+app.get("/api/my/orders", async (req, res) => {
     let digitalId;
     try {
         digitalId = getDigitalIdFromWebInitToken(req.get("x-webinit-token"));
@@ -253,13 +354,13 @@ app.get("/api/my/orders", (req, res) => {
         return res.status(401).json({ success: false, message: error.message });
     }
     try {
-        const orders = getOrderDatabase().prepare(`
-            SELECT orderRefId, paymentStatus, amount, currency, createdAt,
-                partnerName, partnerInvoiceId
-            FROM orders WHERE digitalId = ?
-            ORDER BY createdAt DESC, orderRefId DESC
-        `).all(digitalId);
-        return res.json({ success: true, data: orders });
+        const { rows } = await queryOrderDatabase(`
+            SELECT order_ref_id, payment_status, amount, currency, created_at,
+                partner_name, partner_invoice_id
+            FROM orders WHERE digital_id = ?
+            ORDER BY created_at DESC, order_ref_id DESC
+        `, [digitalId]);
+        return res.json({ success: true, data: rows.map(mapOrderFields) });
     } catch (error) {
         console.error("Unable to read user orders:", error);
         return res.status(500).json({
@@ -269,7 +370,7 @@ app.get("/api/my/orders", (req, res) => {
     }
 });
 
-app.post("/api/local/orders/payment-status", (req, res) => {
+app.post("/api/local/orders/payment-status", async (req, res) => {
     const body = req.body;
     if (!body || typeof body !== "object" || Array.isArray(body)) {
         return res.status(400).json({
@@ -336,24 +437,24 @@ app.post("/api/local/orders/payment-status", (req, res) => {
     }
 
     try {
-        const result = getOrderDatabase().prepare(`
+        const result = await queryOrderDatabase(`
             UPDATE orders SET
-                paymentStatus = ?,
-                partnerCode = COALESCE(?, partnerCode),
-                partnerName = COALESCE(?, partnerName),
-                partnerInvoiceId = COALESCE(?, partnerInvoiceId),
-                PartnerInvoice = COALESCE(?, PartnerInvoice),
-                partnerReferenceId = COALESCE(?, partnerReferenceId),
-                ParnerRefNumber = COALESCE(?, ParnerRefNumber),
+                payment_status = ?,
+                partner_code = COALESCE(?, partner_code),
+                partner_name = COALESCE(?, partner_name),
+                partner_invoice_id = COALESCE(?, partner_invoice_id),
+                partner_invoice = COALESCE(?, partner_invoice),
+                partner_reference_id = COALESCE(?, partner_reference_id),
+                parner_ref_number = COALESCE(?, parner_ref_number),
                 currency = COALESCE(?, currency),
                 amount = COALESCE(?, amount),
-                createdAt = COALESCE(?, createdAt),
-                statusDescription = COALESCE(?, statusDescription),
-                completedDateTime = COALESCE(?, completedDateTime),
-                PaymentStatusCode = COALESCE(?, PaymentStatusCode),
-                orderStatus = COALESCE(?, orderStatus)
-            WHERE orderRefId = ?
-        `).run(
+                created_at = COALESCE(?, created_at),
+                status_description = COALESCE(?, status_description),
+                completed_date_time = COALESCE(?, completed_date_time),
+                payment_status_code = COALESCE(?, payment_status_code),
+                order_status = COALESCE(?, order_status)
+            WHERE order_ref_id = ?
+        `, [
             paymentStatus,
             optionalStrings.partnerCode ?? null,
             optionalStrings.partnerName ?? null,
@@ -369,8 +470,8 @@ app.post("/api/local/orders/payment-status", (req, res) => {
             optionalStrings.PaymentStatusCode ?? null,
             optionalStrings.orderStatus ?? null,
             orderRefId
-        );
-        if (result.changes === 0) {
+        ]);
+        if (result.rowCount === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Order not found"
@@ -386,10 +487,10 @@ app.post("/api/local/orders/payment-status", (req, res) => {
     }
 });
 
-app.post("/api/local/orders/clear", (req, res) => {
+app.post("/api/local/orders/clear", async (req, res) => {
     try {
-        const result = getOrderDatabase().prepare("DELETE FROM orders").run();
-        return res.json({ success: true, deletedCount: result.changes });
+        const result = await queryOrderDatabase("DELETE FROM orders");
+        return res.json({ success: true, deletedCount: result.rowCount });
     } catch (error) {
         console.error("Unable to clear local orders:", error);
         return res.status(500).json({
@@ -467,7 +568,7 @@ app.post("/api/create-order", async (req, res) => {
         );
 console.log("Maybank API FULL Response :", response);
         console.log("Maybank API Response:", response.data);
-        persistOrderResponse(response.data, requestBody, digitalId);
+        await persistOrderResponse(response.data, requestBody, digitalId);
         return res.status(response.status).json({
             success: true,
             data: response.data
@@ -705,7 +806,7 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
                 body: encryptedBody,
                 accessToken
             });
-        persistOrderResponse(response.data, orderPayload, digitalId);
+        await persistOrderResponse(response.data, orderPayload, digitalId);
         return sendDpResponse(res, response);
     } catch (error) {
         return sendDpError(res, "DP create order", error);

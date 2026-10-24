@@ -21,7 +21,7 @@ function loadServer(t, databasePath = ":memory:") {
     const context = vm.createContext({
         require: name => name === "express" ? express : require(name),
         __dirname: root,
-        process: { ...process, env: { ...process.env, LOCAL_DB_PATH: databasePath } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: databasePath } },
         console: { log() {}, error: (...args) => errors.push(args) }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
@@ -39,13 +39,13 @@ function jwt(claims) {
     return "eyJhbGciOiJSUzI1NiJ9." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".sig";
 }
 
-function call(handler, token) {
+async function callAsync(handler, token) {
     const res = {
         statusCode: 200,
         status(code) { this.statusCode = code; return this; },
         json(body) { this.body = JSON.parse(JSON.stringify(body)); return this; }
     };
-    handler({ get: name => name.toLowerCase() === "x-webinit-token" ? token : undefined }, res);
+    await handler({ get: name => name.toLowerCase() === "x-webinit-token" ? token : undefined }, res);
     return res;
 }
 
@@ -56,15 +56,15 @@ function order(orderRefId, amount, createdAt) {
     };
 }
 
-test("orders are saved with digitalId and only the owner's orders are returned", t => {
+test("orders are saved with digitalId and only the owner's orders are returned", async t => {
     const { persist, myOrders, database } = loadServer(t);
-    persist(order("MBB1", 100, "2026-10-21T00:00:00.000Z"), {}, "user-a");
-    persist(order("MBB2", 250, "2026-10-23T00:00:00.000Z"), {}, "user-a");
-    persist(order("MBB3", 300, "2026-10-22T00:00:00.000Z"), {}, "user-b");
-    persist(order("MBB4", 400, "2026-10-22T00:00:00.000Z"), {}, null);
-    database.prepare("UPDATE orders SET paymentStatus = 'SUCCESS' WHERE orderRefId = 'MBB1'").run();
+    await persist(order("MBB1", 100, "2026-10-21T00:00:00.000Z"), {}, "user-a");
+    await persist(order("MBB2", 250, "2026-10-23T00:00:00.000Z"), {}, "user-a");
+    await persist(order("MBB3", 300, "2026-10-22T00:00:00.000Z"), {}, "user-b");
+    await persist(order("MBB4", 400, "2026-10-22T00:00:00.000Z"), {}, null);
+    database.prepare("UPDATE orders SET payment_status = 'SUCCESS' WHERE order_ref_id = 'MBB1'").run();
 
-    const res = call(myOrders, jwt({ did: " user-a ", digitalID: "user-b", sub: "user-b" }));
+    const res = await callAsync(myOrders, jwt({ did: " user-a ", digitalID: "user-b", sub: "user-b" }));
     assert.equal(res.statusCode, 200);
     assert.deepEqual(res.body, {
         success: true,
@@ -75,17 +75,17 @@ test("orders are saved with digitalId and only the owner's orders are returned",
                 createdAt: "2026-10-21T00:00:00.000Z", partnerName: null, partnerInvoiceId: "INVMBB1" }
         ]
     });
-    assert.deepEqual(call(myOrders, jwt({ did: "nobody" })).body, { success: true, data: [] });
+    assert.deepEqual((await callAsync(myOrders, jwt({ did: "nobody" }))).body, { success: true, data: [] });
 });
 
-test("re-saving an order without a digitalId keeps the original owner", t => {
+test("re-saving an order without a digitalId keeps the original owner", async t => {
     const { persist, database } = loadServer(t);
-    persist(order("MBB1", 100, "2026-10-21"), {}, "user-a");
-    persist(order("MBB1", 100, "2026-10-21"), {}, null);
-    assert.equal(database.prepare("SELECT digitalId FROM orders").get().digitalId, "user-a");
+    await persist(order("MBB1", 100, "2026-10-21"), {}, "user-a");
+    await persist(order("MBB1", 100, "2026-10-21"), {}, null);
+    assert.equal(database.prepare("SELECT digital_id FROM orders").get().digital_id, "user-a");
 });
 
-test("my orders rejects missing, malformed, expired or did-less tokens", t => {
+test("my orders rejects missing, malformed, expired or did-less tokens", async t => {
     const { myOrders } = loadServer(t);
     for (const token of [
         undefined, "", "not-a-jwt", "a.b", "a.%%%.c",
@@ -93,15 +93,16 @@ test("my orders rejects missing, malformed, expired or did-less tokens", t => {
         jwt({ did: "   " }), jwt({ did: 123 }),
         jwt({ did: "user-a", exp: Math.floor(Date.now() / 1000) - 60 })
     ]) {
-        const res = call(myOrders, token);
+        const res = await callAsync(myOrders, token);
         assert.equal(res.statusCode, 401, String(token));
         assert.equal(res.body.success, false);
     }
-    assert.equal(call(myOrders, "Bearer " + jwt({ did: "user-a",
-        exp: Math.floor(Date.now() / 1000) + 60 })).statusCode, 200);
+    assert.equal((await callAsync(myOrders, "Bearer " + jwt({
+        did: "user-a", exp: Math.floor(Date.now() / 1000) + 60
+    }))).statusCode, 200);
 });
 
-test("existing databases are migrated to include the digitalId column", t => {
+test("existing databases are migrated to snake_case and include the digital_id column", async t => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orders-"));
     t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
     const file = path.join(dir, "orders.sqlite");
@@ -112,9 +113,18 @@ test("existing databases are migrated to include the digitalId column", t => {
         paymentStatus TEXT NOT NULL, orderStatus TEXT NOT NULL)`);
     legacy.close();
 
-    const { persist, myOrders } = loadServer(t, file);
-    persist(order("MBB9", 100, "2026-10-23"), {}, "user-a");
-    assert.deepEqual(call(myOrders, jwt({ did: "user-a" })).body.data.map(o => o.orderRefId), ["MBB9"]);
+    const { persist, myOrders, database } = loadServer(t, file);
+    await persist(order("MBB9", 100, "2026-10-23"), {}, "user-a");
+    assert.deepEqual(
+        database.prepare("PRAGMA table_info(orders)").all().map(column => column.name),
+        [
+            "order_ref_id", "partner_reference_id", "partner_invoice_id", "currency", "amount",
+            "created_at", "payment_status", "order_status", "partner_code", "partner_name",
+            "partner_invoice", "parner_ref_number", "status_description", "completed_date_time",
+            "payment_status_code", "digital_id"
+        ]
+    );
+    assert.deepEqual((await callAsync(myOrders, jwt({ did: "user-a" }))).body.data.map(o => o.orderRefId), ["MBB9"]);
 });
 
 function dpResponse() {
@@ -143,10 +153,10 @@ test("DP create order persists did and My Orders filters the created orders by d
             body: { partnerInvoiceId: id, partnerReferenceId: "REF1", currency: "MYR", amount: 100 }
         }, res);
         assert.equal(res.statusCode, 201);
-        assert.equal(database.prepare("SELECT digitalId FROM orders WHERE orderRefId = ?").get(id).digitalId, did);
-        assert.deepEqual(call(myOrders, token).body.data.map(order => order.orderRefId), [id]);
+        assert.equal(database.prepare("SELECT digital_id FROM orders WHERE order_ref_id = ?").get(id).digital_id, did);
+        assert.deepEqual((await callAsync(myOrders, token)).body.data.map(order => order.orderRefId), [id]);
     }
-    assert.deepEqual(call(myOrders, jwt({ did: "wrong-user" })).body.data, []);
+    assert.deepEqual((await callAsync(myOrders, jwt({ did: "wrong-user" }))).body.data, []);
 });
 
 test("DP create order rejects invalid did tokens before encryption or upstream calls", async t => {

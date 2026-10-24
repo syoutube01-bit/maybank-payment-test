@@ -19,7 +19,7 @@ function loadOrdersRoute(t) {
     const context = vm.createContext({
         require: name => name === "express" ? express : require(name),
         __dirname: root,
-        process: { ...process, env: { ...process.env, LOCAL_DB_PATH: ":memory:" } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: ":memory:" } },
         console: { log() {}, error: (...args) => errors.push(args) }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
@@ -39,21 +39,21 @@ function loadOrdersRoute(t) {
     };
 }
 
-test("local orders returns an empty list from a new database", t => {
+test("local orders returns an empty list from a new database", async t => {
     const { handler, response } = loadOrdersRoute(t);
-    handler({}, response);
+    await handler({}, response);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body, { success: true, data: [] });
 });
 
-test("order lookup returns saved details only for the exact reference", t => {
+test("order lookup returns saved details only for the exact reference", async t => {
     const { orderHandler, database, response } = loadOrdersRoute(t);
     database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run("MBB777", "REF777", "INV15486272711", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
-    orderHandler({ params: { orderRefId: "MBB777" } }, response);
+    await orderHandler({ params: { orderRefId: "MBB777" } }, response);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body, {
         success: true,
@@ -66,16 +66,16 @@ test("order lookup returns saved details only for the exact reference", t => {
         }
     });
     for (const orderRefId of ["missing", "MBB777' OR 1=1 --"]) {
-        orderHandler({ params: { orderRefId } }, response);
+        await orderHandler({ params: { orderRefId } }, response);
         assert.equal(response.statusCode, 404);
         assert.deepEqual(response.body, { success: false, message: "Order not found" });
     }
 });
 
-test("order lookup logs database failures and returns JSON errors", t => {
+test("order lookup logs database failures and returns JSON errors", async t => {
     const { orderHandler, database, response, errors } = loadOrdersRoute(t);
     database.exec("DROP TABLE orders");
-    orderHandler({ params: { orderRefId: "MBB777" } }, response);
+    await orderHandler({ params: { orderRefId: "MBB777" } }, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
         success: false, message: "Unable to load order from the local database"
@@ -83,7 +83,7 @@ test("order lookup logs database failures and returns JSON errors", t => {
     assert.equal(errors.length, 1);
 });
 
-test("local orders returns saved orders newest first with deterministic ties", t => {
+test("local orders returns saved orders newest first with deterministic ties", async t => {
     const { handler, database, response } = loadOrdersRoute(t);
     const orders = [
         ["MBB1", "REF1", "INV1", "MYR", 100, "2026-10-22", "PENDING", "CREATED"],
@@ -91,20 +91,20 @@ test("local orders returns saved orders newest first with deterministic ties", t
         ["MBB3", "REF3", "INV3", "MYR", 300, "2026-10-23", "PENDING", "CREATED"]
     ];
     const insert = database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const order of orders) insert.run(...order);
-    handler({}, response);
+    await handler({}, response);
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.success, true);
     assert.deepEqual(response.body.data.map(order => Object.values(order).slice(0, 8)), orders.toReversed());
 });
 
-test("local orders logs database errors and returns an explicit failure", t => {
+test("local orders logs database errors and returns an explicit failure", async t => {
     const { handler, database, response, errors } = loadOrdersRoute(t);
     database.exec("DROP TABLE orders");
-    handler({}, response);
+    await handler({}, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
         success: false, message: "Unable to load orders from the local database"
@@ -113,31 +113,31 @@ test("local orders logs database errors and returns an explicit failure", t => {
     assert.equal(errors.length, 1);
 });
 
-test("clear local orders deletes every order and preserves the table for future orders", t => {
+test("clear local orders deletes every order and preserves the table for future orders", async t => {
     const { handler, clearHandler, database, response } = loadOrdersRoute(t);
     const insert = database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const id of ["MBB1", "MBB2"]) {
         insert.run(id, "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
     }
-    clearHandler({}, response);
+    await clearHandler({}, response);
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.body, { success: true, deletedCount: 2 });
-    handler({}, response);
+    await handler({}, response);
     assert.deepEqual(response.body, { success: true, data: [] });
-    clearHandler({}, response);
+    await clearHandler({}, response);
     assert.deepEqual(response.body, { success: true, deletedCount: 0 });
     insert.run("MBB3", "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
-    handler({}, response);
+    await handler({}, response);
     assert.equal(response.body.data.length, 1);
 });
 
-test("clear local orders logs database failures without claiming success", t => {
+test("clear local orders logs database failures without claiming success", async t => {
     const { clearHandler, database, response, errors } = loadOrdersRoute(t);
     database.exec("DROP TABLE orders");
-    clearHandler({}, response);
+    await clearHandler({}, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
         success: false, message: "Unable to clear orders from the local database"
@@ -145,55 +145,55 @@ test("clear local orders logs database failures without claiming success", t => 
     assert.equal(errors.length, 1);
 });
 
-test("update payment status changes only the matching order's paymentStatus and is idempotent", t => {
+test("update payment status changes only the matching order's paymentStatus and is idempotent", async t => {
     const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
     const insert = database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const id of ["MBB768", "MBB769"]) {
         insert.run(id, "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
     }
-    const before = database.prepare("SELECT * FROM orders ORDER BY orderRefId").all();
+    const before = database.prepare("SELECT * FROM orders ORDER BY order_ref_id").all();
     const body = { orderRefId: "MBB768", paymentStatus: "SUCCESS" };
 
     for (let attempt = 0; attempt < 2; attempt++) {
-        updatePaymentStatusHandler({ body }, response);
+        await updatePaymentStatusHandler({ body }, response);
         assert.equal(response.statusCode, 200);
         assert.deepEqual(response.body, { success: true, data: body });
         assert.deepEqual(
-            database.prepare("SELECT * FROM orders ORDER BY orderRefId").all().map(row => ({ ...row })),
-            [{ ...before[0], paymentStatus: "SUCCESS" }, { ...before[1] }]
+            database.prepare("SELECT * FROM orders ORDER BY order_ref_id").all().map(row => ({ ...row })),
+            [{ ...before[0], payment_status: "SUCCESS" }, { ...before[1] }]
         );
     }
 });
 
-test("update payment status returns 404 for unknown orders and treats IDs as literal values", t => {
+test("update payment status returns 404 for unknown orders and treats IDs as literal values", async t => {
     const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
     database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run("MBB768", "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
     for (const orderRefId of ["unknown", "MBB768' OR 1=1 --"]) {
-        updatePaymentStatusHandler({ body: { orderRefId, paymentStatus: "SUCCESS" } }, response);
+        await updatePaymentStatusHandler({ body: { orderRefId, paymentStatus: "SUCCESS" } }, response);
         assert.equal(response.statusCode, 404);
         assert.deepEqual(response.body, { success: false, message: "Order not found" });
     }
-    assert.equal(database.prepare("SELECT paymentStatus FROM orders").get().paymentStatus, "PENDING");
+    assert.equal(database.prepare("SELECT payment_status FROM orders").get().payment_status, "PENDING");
 });
 
-test("update payment status rejects missing, blank, and non-string fields without changing orders", t => {
+test("update payment status rejects missing, blank, and non-string fields without changing orders", async t => {
     const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
     database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run("MBB768", "REF1", "INV1", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
     for (const field of ["orderRefId", "paymentStatus"]) {
         for (const value of [undefined, null, "", "   ", 123, [], {}]) {
             const body = { orderRefId: "MBB768", paymentStatus: "SUCCESS", [field]: value };
-            updatePaymentStatusHandler({ body }, response);
+            await updatePaymentStatusHandler({ body }, response);
             assert.equal(response.statusCode, 400);
             assert.deepEqual(response.body, {
                 success: false, message: `${field} must be a non-empty string`
@@ -201,16 +201,16 @@ test("update payment status rejects missing, blank, and non-string fields withou
         }
     }
     for (const body of [undefined, null, [], "invalid"]) {
-        updatePaymentStatusHandler({ body }, response);
+        await updatePaymentStatusHandler({ body }, response);
         assert.equal(response.statusCode, 400);
     }
-    assert.equal(database.prepare("SELECT paymentStatus FROM orders").get().paymentStatus, "PENDING");
+    assert.equal(database.prepare("SELECT payment_status FROM orders").get().payment_status, "PENDING");
 });
 
-test("update payment status logs database failures without claiming success", t => {
+test("update payment status logs database failures without claiming success", async t => {
     const { updatePaymentStatusHandler, database, response, errors } = loadOrdersRoute(t);
     database.exec("DROP TABLE orders");
-    updatePaymentStatusHandler({ body: { orderRefId: "MBB768", paymentStatus: "SUCCESS" } }, response);
+    await updatePaymentStatusHandler({ body: { orderRefId: "MBB768", paymentStatus: "SUCCESS" } }, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
         success: false, message: "Unable to update payment status in the local database"
@@ -218,16 +218,16 @@ test("update payment status logs database failures without claiming success", t 
     assert.equal(errors.length, 1);
 });
 
-test("payment status updates persist all supplied partner and completion fields", t => {
+test("payment status updates persist all supplied partner and completion fields", async t => {
     const { updatePaymentStatusHandler, database, response } = loadOrdersRoute(t);
     database.prepare(`INSERT INTO orders (
-        orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-        createdAt, paymentStatus, orderStatus
+        order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+        created_at, payment_status, order_status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run("ORD202607170001", "PRN202607170001", "INV202607170001", "MYR",
             100, "2026-07-17T07:29:55Z", "PENDING", "CREATED");
 
-    updatePaymentStatusHandler({
+    await updatePaymentStatusHandler({
         body: {
             partnerCode: "PAT001",
             partnerName: "PAT001 Demo Partner",
@@ -246,24 +246,24 @@ test("payment status updates persist all supplied partner and completion fields"
     }, response);
 
     assert.equal(response.statusCode, 200);
-    const savedOrder = database.prepare("SELECT * FROM orders WHERE orderRefId = ?")
+    const savedOrder = database.prepare("SELECT * FROM orders WHERE order_ref_id = ?")
         .get("ORD202607170001");
     assert.deepEqual({ ...savedOrder }, {
-        orderRefId: "ORD202607170001",
-        partnerReferenceId: "PRN202607170001",
-        partnerInvoiceId: "INV202607170001",
+        order_ref_id: "ORD202607170001",
+        partner_reference_id: "PRN202607170001",
+        partner_invoice_id: "INV202607170001",
         currency: "MYR",
         amount: 100,
-        createdAt: "2026-07-17T00:00:00.000Z",
-        paymentStatus: "SUCCESS",
-        orderStatus: "COMPLETED",
-        partnerCode: "PAT001",
-        partnerName: "PAT001 Demo Partner",
-        PartnerInvoice: "INV202607170001",
-        ParnerRefNumber: "PRN202607170001",
-        statusDescription: "Payment completed successfully",
-        completedDateTime: "2026-07-17T07:29:55Z",
-        PaymentStatusCode: "0000",
-        digitalId: null
+        created_at: "2026-07-17T00:00:00.000Z",
+        payment_status: "SUCCESS",
+        order_status: "COMPLETED",
+        partner_code: "PAT001",
+        partner_name: "PAT001 Demo Partner",
+        partner_invoice: "INV202607170001",
+        parner_ref_number: "PRN202607170001",
+        status_description: "Payment completed successfully",
+        completed_date_time: "2026-07-17T07:29:55Z",
+        payment_status_code: "0000",
+        digital_id: null
     });
 });

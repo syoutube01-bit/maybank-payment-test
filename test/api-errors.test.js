@@ -15,7 +15,7 @@ test("API errors are JSON over HTTP without changing page responses", async t =>
     const context = vm.createContext({
         require: name => name === "express" ? Object.assign(() => app, express) : require(name),
         __dirname: root,
-        process: { ...process, env: { ...process.env, LOCAL_DB_PATH: ":memory:" } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: ":memory:" } },
         console: { log() {}, error: (...args) => errors.push(args) }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
@@ -52,8 +52,8 @@ test("API errors are JSON over HTTP without changing page responses", async t =>
 
     await t.test("order reference lookup returns the stored order as JSON", async () => {
         database.prepare(`INSERT INTO orders (
-            orderRefId, partnerReferenceId, partnerInvoiceId, currency, amount,
-            createdAt, paymentStatus, orderStatus
+            order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
+            created_at, payment_status, order_status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
             .run("MBB777", "REF777", "INV15486272711", "MYR", 100, "2026-10-23", "PENDING", "CREATED");
         const response = await fetch(baseUrl + "/api/local/orders/MBB777");

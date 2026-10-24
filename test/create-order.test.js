@@ -37,7 +37,7 @@ function loadCreateOrderRoute(upstreamError, responseData = { orderId: "test-ord
             return require(name);
         },
         __dirname: root,
-        process: { ...process, env: { ...process.env, LOCAL_DB_PATH: dbPath } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: dbPath } },
         URL,
         console: { log() {}, error() {} }
     });
@@ -113,9 +113,26 @@ test("create order saves the returned order details in the local database", asyn
     await handler({ body: { ...order, webinitToken } }, response);
 
     const db = new DatabaseSync(dbPath);
-    const savedOrder = db.prepare("SELECT * FROM orders WHERE orderRefId = ?").get("MBB768");
+    const savedOrder = db.prepare("SELECT * FROM orders WHERE order_ref_id = ?").get("MBB768");
     db.close();
-    assert.deepEqual({ ...savedOrder }, { ...orderResponse, digitalId: "user-768" });
+    assert.deepEqual({ ...savedOrder }, {
+        order_ref_id: orderResponse.orderRefId,
+        partner_reference_id: orderResponse.partnerReferenceId,
+        partner_invoice_id: orderResponse.partnerInvoiceId,
+        currency: orderResponse.currency,
+        amount: orderResponse.amount,
+        created_at: orderResponse.createdAt,
+        payment_status: orderResponse.paymentStatus,
+        order_status: orderResponse.orderStatus,
+        partner_code: orderResponse.partnerCode,
+        partner_name: orderResponse.partnerName,
+        partner_invoice: orderResponse.PartnerInvoice,
+        parner_ref_number: orderResponse.ParnerRefNumber,
+        status_description: orderResponse.statusDescription,
+        completed_date_time: orderResponse.completedDateTime,
+        payment_status_code: orderResponse.PaymentStatusCode,
+        digital_id: "user-768"
+    });
     cleanup();
 });
 
