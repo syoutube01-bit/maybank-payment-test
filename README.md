@@ -27,6 +27,17 @@ The start command loads `.env` when present; existing environment variables take
 precedence. `.env` is ignored by Git and must not be committed. To use a different
 HTTP port, set `PORT` in `.env` or the environment.
 
+## My Orders
+
+The CTOS, Easybook and eSIM landing pages and [My Orders](public/my-orders.html)
+share the same responsive order cards and loading logic. All four views request
+`/api/my/orders` using the MAE native web-init token and show the current user's
+orders, including older orders without a partner ID. The `partnerId` query
+parameter on the dedicated screen sets the partner heading and back navigation;
+it does not filter the list. Open these screens inside MAE to use the native
+bridge. Loading failures are displayed in the order section, with a refresh
+button to retry.
+
 ## Render PostgreSQL
 
 Create a PostgreSQL database in Render and add its **Internal Database URL** to the

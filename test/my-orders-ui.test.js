@@ -18,11 +18,15 @@ function element() {
     };
 }
 
-function loadOrders({ bridge, fetch, Date: clock = Date }) {
+function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = false }) {
     const section = element();
     const message = element();
     const list = element();
     const button = element();
+    const backLink = element();
+    const partnerName = element();
+    const ordersLink = element();
+    ordersLink.dataset.partnerId = new URLSearchParams(search).get("partnerId");
     const elements = {
         ".my-orders-message": message,
         ".my-orders-list": list,
@@ -31,18 +35,25 @@ function loadOrders({ bridge, fetch, Date: clock = Date }) {
     section.querySelector = selector => elements[selector];
     const document = {
         readyState: "loading",
-        getElementById: id => id === "myOrders" ? section : null,
+        getElementById: id => ({
+            myOrders: section, backLink, partnerName, myOrdersLink: screen ? null : ordersLink
+        })[id] || null,
         querySelector: () => button,
         addEventListener(name, handler) { this[name] = handler; },
         createElement: element,
         createDocumentFragment: element
     };
-    const window = { nativeMessageService: bridge };
-    const context = vm.createContext({ window, document, fetch, atob, Date: clock });
+    const window = { nativeMessageService: bridge, location: { search } };
+    const context = vm.createContext({ window, document, fetch, atob, Date: clock, URLSearchParams });
     for (const file of ["payment-session.js", "my-orders.js"]) {
+        if (screen && file === "my-orders.js") {
+            const html = fs.readFileSync(path.join(root, "my-orders.html"), "utf8");
+            vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
+        }
         vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context);
     }
-    return { window, section, message, list, button, initialize: () => document.DOMContentLoaded() };
+    return { window, section, message, list, button, backLink, partnerName, ordersLink,
+        initialize: () => document.DOMContentLoaded() };
 }
 
 function response(orders, status = 200) {
@@ -176,14 +187,58 @@ test("partner pages have a My orders button next to API test linking to their ow
     assert.match(screen, /<script src="\/my-orders.js"><\/script>/);
 });
 
-test("orders screen requests only the selected partner's orders", async () => {
-    let requestedUrl;
+test("landing and dedicated screens request the same user's orders for every partner", async () => {
+    for (const partner of ["ctos", "easybook", "esim"]) {
+        const search = "?partnerId=mbb-mae-" + partner + "&source=mae";
+        const requests = [];
+        const options = {
+            search,
+            bridge: { async callAPI() { return { webInitToken: "token" }; } },
+            async fetch(url, init) {
+                requests.push([url, init.headers["x-webinit-token"], init.cache]);
+                return response([order("MBB1"), order("MBB2", "SUCCESS")]);
+            }
+        };
+        const landing = loadOrders(options);
+        await landing.initialize();
+        assert.equal(landing.ordersLink.href, "/my-orders.html" + search);
+        const screen = loadOrders({ ...options, screen: true });
+        await screen.initialize();
+        assert.deepEqual(requests, [
+            ["/api/my/orders", "token", "no-store"],
+            ["/api/my/orders", "token", "no-store"]
+        ]);
+        assert.equal(screen.list.children[0].children.length, 2);
+        assert.equal(screen.section.hidden, false);
+        assert.equal(screen.message.hidden, true);
+        assert.equal(screen.backLink.href, "/" + search);
+        assert.ok(screen.partnerName.textContent);
+    }
+});
+
+test("order cards include a reference, status, formatted amount, date and details link", async () => {
     const ui = loadOrders({
         bridge: { async callAPI() { return { webInitToken: "token" }; } },
-        async fetch(url) { requestedUrl = url; return response([order("MBB1")]); }
+        async fetch() { return response([order("MBB1", "SUCCESS")]); }
     });
-    ui.section.dataset.partnerId = "mbb-mae-ctos";
     await ui.initialize();
-    assert.equal(requestedUrl, "/api/my/orders?partnerId=mbb-mae-ctos");
-    assert.equal(ui.list.children.length, 1);
+    const card = ui.list.children[0].children[0].children[0];
+    assert.equal(card.className, "my-order");
+    assert.equal(card.href, "/paymentstatus?orderId=MBB1");
+    assert.equal(card.children[0].textContent, "Order #MBB1");
+    assert.equal(card.children[1].dataset.status, "SUCCESS");
+    assert.equal(card.children[2].textContent, "MYR 100.00");
+    assert.equal(card.children[3].textContent, "Placed 2026-10-23");
+    assert.equal(card.children[3].dateTime, "2026-10-23");
+    assert.equal(card.children[4].textContent, "View order details");
+});
+
+test("every orders view loads shared card styling without a dedicated-page scope", () => {
+    for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.html", "my-orders.html"]) {
+        assert.match(fs.readFileSync(path.join(root, page), "utf8"), /href="\/my-orders.css"/);
+    }
+    const css = fs.readFileSync(path.join(root, "my-orders.css"), "utf8");
+    assert.match(css, /\.my-orders \.my-orders-list \{[^}]*display: grid;[^}]*list-style: none;/);
+    assert.match(css, /\.my-orders \.my-order \{[^}]*display: grid;[^}]*border-radius: 16px;/);
+    assert.match(css, /\.my-orders \[hidden\] \{ display: none; \}/);
 });

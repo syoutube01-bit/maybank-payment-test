@@ -15,20 +15,28 @@
 
             const id = document.createElement("span");
             id.className = "my-order-id";
-            id.textContent = order.orderRefId;
+            id.textContent = "Order #" + order.orderRefId;
             const status = document.createElement("span");
             status.className = "my-order-status";
             status.dataset.status = String(order.paymentStatus || "").toUpperCase();
             status.textContent = order.paymentStatus;
             const amount = document.createElement("span");
             amount.className = "my-order-amount";
-            amount.textContent = (order.currency ? order.currency + " " : "") + order.amount;
+            const formattedAmount = Number(order.amount).toLocaleString("en-MY", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+            amount.textContent = (order.currency ? order.currency + " " : "") + formattedAmount;
             const date = document.createElement("time");
             date.className = "my-order-date";
-            date.textContent = formatDate(order.createdAt);
-            if (date.textContent) date.dateTime = date.textContent;
+            const createdDate = formatDate(order.createdAt);
+            date.textContent = createdDate ? "Placed " + createdDate : "";
+            if (createdDate) date.dateTime = createdDate;
 
-            link.append(id, status, amount, date);
+            const action = document.createElement("span");
+            action.className = "my-order-action";
+            action.textContent = "View order details";
+            link.append(id, status, amount, date, action);
             item.appendChild(link);
             rows.appendChild(item);
         }
@@ -52,9 +60,7 @@
         list.replaceChildren();
         try {
             const webInitToken = await window.paymentSession.getWebInitToken();
-            const partnerId = section.dataset.partnerId;
-            const url = partnerId ? "/api/my/orders?partnerId=" + encodeURIComponent(partnerId) : "/api/my/orders";
-            const res = await fetch(url, {
+            const res = await fetch("/api/my/orders", {
                 method: "GET",
                 cache: "no-store",
                 headers: { "x-webinit-token": webInitToken }

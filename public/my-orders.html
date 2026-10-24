@@ -44,7 +44,6 @@
             };
             const partnerId = new URLSearchParams(window.location.search).get("partnerId") || "";
             const partnerName = Object.hasOwn(partnerNames, partnerId) ? partnerNames[partnerId] : "";
-            document.getElementById("myOrders").dataset.partnerId = partnerId;
             document.getElementById("partnerName").textContent = partnerName;
             document.title = partnerName ? partnerName + " | My Orders" : "My Orders";
             // "/" redirects back to the partner landing page, keeping the original query string.

@@ -60,8 +60,8 @@
 
 .orders-page .back-link:hover { border-color: #c5ccd6; background: #f9fafb; transform: translateX(-2px); }
 .orders-page .back-link:focus-visible,
-.orders-page .my-orders-refresh:focus-visible,
-.orders-page .my-order:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
+.my-orders .my-orders-refresh:focus-visible,
+.my-orders .my-order:focus-visible { outline: 3px solid var(--orders-accent, #17324d); outline-offset: 3px; }
 
 .orders-page .partner-name {
     margin: 0;
@@ -81,7 +81,7 @@
     box-shadow: 0 18px 55px rgba(23, 50, 77, 0.08);
 }
 
-.orders-page .my-orders-header {
+.my-orders .my-orders-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -89,7 +89,7 @@
     margin-bottom: 28px;
 }
 
-.orders-page .my-orders-heading { min-width: 0; }
+.my-orders .my-orders-heading { min-width: 0; }
 .orders-page .eyebrow {
     margin: 0 0 10px;
     color: #826100;
@@ -113,7 +113,7 @@
     line-height: 1.55;
 }
 
-.orders-page .my-orders-refresh {
+.my-orders .my-orders-refresh {
     display: inline-flex;
     width: 48px;
     height: 48px;
@@ -123,28 +123,28 @@
     padding: 0;
     border: 0;
     border-radius: 16px;
-    color: #17324d;
-    background: #ffc20e;
+    color: var(--orders-button-ink, #17324d);
+    background: var(--orders-accent, #ffc20e);
     cursor: pointer;
     transition: background-color 160ms ease, transform 160ms ease;
 }
 
-.orders-page .my-orders-refresh:hover:not(:disabled) { background: #f3b600; transform: translateY(-1px); }
-.orders-page .my-orders-refresh:disabled { opacity: 0.58; cursor: wait; }
-.orders-page .my-orders-refresh:disabled svg { animation: refresh-spin 1s linear infinite; }
-.orders-page .my-orders-message {
+.my-orders .my-orders-refresh:hover:not(:disabled) { filter: brightness(0.94); transform: translateY(-1px); }
+.my-orders .my-orders-refresh:disabled { opacity: 0.58; cursor: wait; }
+.my-orders .my-orders-refresh:disabled svg { animation: refresh-spin 1s linear infinite; }
+.my-orders .my-orders-message {
     margin: 0;
     padding: 18px 20px;
-    border: 1px solid #e5e9ef;
+    border: 1px solid var(--orders-line, #e5e9ef);
     border-radius: 14px;
-    color: #526273;
+    color: var(--orders-muted, #526273);
     font-size: 14px;
     line-height: 1.5;
     overflow-wrap: anywhere;
-    background: #f8fafc;
+    background: var(--orders-card, #f8fafc);
 }
 
-.orders-page .my-orders-list {
+.my-orders .my-orders-list {
     display: grid;
     gap: 12px;
     margin: 0;
@@ -152,29 +152,31 @@
     list-style: none;
 }
 
-.orders-page .my-order {
+.my-orders .my-orders-list > li { min-width: 0; margin: 0; padding: 0; }
+
+.my-orders .my-order {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
     align-items: center;
     gap: 12px 20px;
     padding: 20px 22px;
-    border: 1px solid #e5e9ef;
+    border: 1px solid var(--orders-line, #e5e9ef);
     border-radius: 16px;
-    color: inherit;
+    color: var(--orders-ink, #17324d);
     text-decoration: none;
-    background: #fff;
+    background: var(--orders-card, #fff);
+    box-shadow: 0 3px 12px rgba(23, 50, 77, 0.04);
     transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
-.orders-page .my-order:hover {
-    border-color: #e4bd47;
+.my-orders .my-order:hover {
+    border-color: var(--orders-accent, #e4bd47);
     box-shadow: 0 8px 22px rgba(23, 50, 77, 0.07);
     transform: translateY(-1px);
 }
 
-.orders-page .my-order-id { min-width: 0; font-size: 15px; font-weight: 750; overflow-wrap: anywhere; }
-.orders-page .my-order-status {
+.my-orders .my-order-id { min-width: 0; font-size: 15px; font-weight: 750; line-height: 1.5; overflow-wrap: anywhere; }
+.my-orders .my-order-status {
     justify-self: end;
     padding: 6px 11px;
     border-radius: 999px;
@@ -186,12 +188,25 @@
     background: #fff4ce;
 }
 
-.orders-page .my-order-status[data-status="SUCCESS"],
-.orders-page .my-order-status[data-status="PAID"] { color: #17613c; background: #e0f4e8; }
-.orders-page .my-order-status[data-status="FAILED"],
-.orders-page .my-order-status[data-status="CANCELLED"] { color: #9e2f36; background: #fde8e8; }
-.orders-page .my-order-amount { color: #17324d; font-size: 14px; font-weight: 700; }
-.orders-page .my-order-date { justify-self: end; color: #718096; font-size: 13px; }
+.my-orders .my-order-status[data-status="SUCCESS"],
+.my-orders .my-order-status[data-status="PAID"] { color: #17613c; background: #e0f4e8; }
+.my-orders .my-order-status[data-status="FAILED"],
+.my-orders .my-order-status[data-status="CANCELLED"] { color: #9e2f36; background: #fde8e8; }
+.my-orders .my-order-amount { font-size: 18px; font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.my-orders .my-order-date { justify-self: end; color: var(--orders-muted, #637386); font-size: 12px; text-align: right; }
+.my-orders .my-order-action {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--orders-line, #e5e9ef);
+    color: var(--orders-muted, #526273);
+    font-size: 12px;
+    font-weight: 600;
+}
+.my-orders .my-order-action::after { content: "\2192"; font-size: 18px; }
 
 .header-actions {
     display: flex;
@@ -202,14 +217,25 @@
 }
 .header-actions .api-test { margin: 0; }
 
-.my-orders-header {
+.my-orders {
+    min-width: 0;
+    text-align: left;
+}
+.my-orders[hidden],
+.my-orders [hidden] { display: none; }
+.my-orders .my-orders-header {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 16px;
 }
-.my-orders .my-orders-header h2 { margin: 0; }
+.my-orders .my-orders-header h2 { margin: 0; font-size: 20px; line-height: 1.3; letter-spacing: -0.02em; }
 .my-orders-header .my-orders-refresh { flex: 0 0 auto; }
+
+body:not(.orders-page) .my-orders-header {
+    justify-content: flex-start;
+    gap: 12px;
+}
 
 @keyframes refresh-spin {
     to { transform: rotate(360deg); }
@@ -220,18 +246,20 @@
     .orders-page .page-header { margin-bottom: 20px; }
     .orders-page .my-orders { padding: 24px 18px; border-radius: 20px; }
     .orders-page .my-orders-header { align-items: flex-start; gap: 14px; margin-bottom: 22px; }
-    .orders-page .my-orders-refresh { width: 44px; height: 44px; border-radius: 14px; }
-    .orders-page .my-order { padding: 16px; gap: 10px 12px; }
-    .orders-page .my-order-id { font-size: 14px; }
-    .orders-page .my-order-date { font-size: 12px; }
+    .my-orders .my-orders-refresh { width: 44px; height: 44px; border-radius: 14px; }
+    .my-orders .my-order { padding: 16px; gap: 10px 12px; }
+    .my-orders .my-order-id { font-size: 14px; }
 }
 
 @media (max-width: 360px) {
     .orders-page .page { width: min(100% - 24px, 960px); }
     .orders-page .my-orders { padding: 22px 14px; }
-    .orders-page .my-order { padding: 14px 12px; }
+    .my-orders .my-order { padding: 14px 12px; grid-template-columns: minmax(0, 1fr); }
+    .my-orders .my-order-status,
+    .my-orders .my-order-date { justify-self: start; text-align: left; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .orders-page *, .orders-page *::before, .orders-page *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    .orders-page *, .orders-page *::before, .orders-page *::after,
+    .my-orders *, .my-orders *::before, .my-orders *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
