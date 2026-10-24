@@ -57,3 +57,70 @@ test("PostgreSQL mode initializes the snake_case schema and binds query paramete
     assert.deepEqual(queries[1].parameters, ["SUCCESS", "MBB123"]);
     assert.equal(listeningAfterSchemaCreation, true);
 });
+
+test("PostgreSQL query failures propagate without a fallback", async () => {
+    const databaseError = new Error("PostgreSQL is unavailable");
+    class FailingPool {
+        constructor() {}
+
+        async query() {
+            throw databaseError;
+        }
+    }
+    const app = {
+        use() {},
+        listen() {},
+        get() {},
+        post() {}
+    };
+    const express = Object.assign(() => app, {
+        json() {}, urlencoded() {}, static() {}, text() {}
+    });
+    const root = path.join(__dirname, "..");
+    const context = vm.createContext({
+        require(name) {
+            if (name === "express") return express;
+            if (name === "pg") return { Pool: FailingPool };
+            return require(name);
+        },
+        __dirname: root,
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
+        console: { log() {}, error() {} }
+    });
+    vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
+
+    const query = vm.runInContext("queryOrderDatabase", context);
+    await assert.rejects(query("SELECT order_ref_id FROM orders"), error => error === databaseError);
+});
+
+test("database queries fail explicitly when DATABASE_URL is not configured", async () => {
+    class MockPool {
+        constructor() {}
+    }
+    const app = {
+        use() {},
+        listen() {},
+        get() {},
+        post() {}
+    };
+    const express = Object.assign(() => app, {
+        json() {}, urlencoded() {}, static() {}, text() {}
+    });
+    const root = path.join(__dirname, "..");
+    const context = vm.createContext({
+        require(name) {
+            if (name === "express") return express;
+            if (name === "pg") return { Pool: MockPool };
+            return require(name);
+        },
+        __dirname: root,
+        process: { ...process, env: { ...process.env, DATABASE_URL: "" } },
+        console: { log() {}, error() {} }
+    });
+    vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
+
+    const query = vm.runInContext("queryOrderDatabase", context);
+    await assert.rejects(query("SELECT order_ref_id FROM orders"), {
+        message: "DATABASE_URL must be set to use the PostgreSQL database."
+    });
+});

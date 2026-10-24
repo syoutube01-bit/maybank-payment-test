@@ -30,10 +30,17 @@ function loadInvoiceRoute() {
         require(name) {
             if (name === "express") return express;
             if (name === "axios") return axios;
+            if (name === "pg") return {
+                Pool: class {
+                    async query() {
+                        return { rows: [], rowCount: 0 };
+                    }
+                }
+            };
             return require(name);
         },
         __dirname: root,
-        process,
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
         console: { log() {}, error() {} },
         signedUrls
     });

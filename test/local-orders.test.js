@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
+const { createPostgresMock } = require("./postgres-test-pool");
 
 function loadOrdersRoute(t) {
     const routes = new Map();
@@ -16,14 +17,17 @@ function loadOrdersRoute(t) {
         json() {}, urlencoded() {}, static() {}, text() {}
     });
     const root = path.join(__dirname, "..");
+    const postgres = createPostgresMock();
     const context = vm.createContext({
-        require: name => name === "express" ? express : require(name),
+        require: name => name === "express" ? express
+            : name === "pg" ? postgres
+                : require(name),
         __dirname: root,
-        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: ":memory:" } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
         console: { log() {}, error: (...args) => errors.push(args) }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
-    const database = vm.runInContext("getOrderDatabase()", context);
+    const database = postgres.database;
     t.after(() => database.close());
     const response = {
         statusCode: 200,
@@ -78,7 +82,7 @@ test("order lookup logs database failures and returns JSON errors", async t => {
     await orderHandler({ params: { orderRefId: "MBB777" } }, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
-        success: false, message: "Unable to load order from the local database"
+        success: false, message: "Unable to load order from PostgreSQL"
     });
     assert.equal(errors.length, 1);
 });
@@ -107,7 +111,7 @@ test("local orders logs database errors and returns an explicit failure", async 
     await handler({}, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
-        success: false, message: "Unable to load orders from the local database"
+        success: false, message: "Unable to load orders from PostgreSQL"
     });
 
     assert.equal(errors.length, 1);
@@ -140,7 +144,7 @@ test("clear local orders logs database failures without claiming success", async
     await clearHandler({}, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
-        success: false, message: "Unable to clear orders from the local database"
+        success: false, message: "Unable to clear orders from PostgreSQL"
     });
     assert.equal(errors.length, 1);
 });
@@ -213,7 +217,7 @@ test("update payment status logs database failures without claiming success", as
     await updatePaymentStatusHandler({ body: { orderRefId: "MBB768", paymentStatus: "SUCCESS" } }, response);
     assert.equal(response.statusCode, 500);
     assert.deepEqual(response.body, {
-        success: false, message: "Unable to update payment status in the local database"
+        success: false, message: "Unable to update payment status in PostgreSQL"
     });
     assert.equal(errors.length, 1);
 });

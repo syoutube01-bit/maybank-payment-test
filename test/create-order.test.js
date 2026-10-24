@@ -1,18 +1,16 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
-const { DatabaseSync } = require("node:sqlite");
 const vm = require("node:vm");
 const { test } = require("node:test");
+const { createPostgresMock } = require("./postgres-test-pool");
 
 const root = path.join(__dirname, "..");
 
 function loadCreateOrderRoute(upstreamError, responseData = { orderId: "test-order-id" }) {
     const routes = new Map();
     const requests = [];
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "maybank-order-test-"));
-    const dbPath = path.join(tempDir, "orders.sqlite");
+    const postgres = createPostgresMock();
     const app = {
         use() {},
         get() {},
@@ -34,10 +32,11 @@ function loadCreateOrderRoute(upstreamError, responseData = { orderId: "test-ord
         require(name) {
             if (name === "express") return express;
             if (name === "axios") return axios;
+            if (name === "pg") return postgres;
             return require(name);
         },
         __dirname: root,
-        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: dbPath } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
         URL,
         console: { log() {}, error() {} }
     });
@@ -45,8 +44,8 @@ function loadCreateOrderRoute(upstreamError, responseData = { orderId: "test-ord
     return {
         handler: routes.get("/api/create-order"),
         requests,
-        dbPath,
-        cleanup() { fs.rmSync(tempDir, { recursive: true, force: true }); }
+        database: postgres.database,
+        cleanup() { postgres.database.close(); }
     };
 }
 
@@ -88,7 +87,7 @@ test("create order posts to the cURL endpoint with body and headers in the corre
     cleanup();
 });
 
-test("create order saves the returned order details in the local database", async () => {
+test("create order saves the returned order details in PostgreSQL", async () => {
     const orderResponse = {
         orderRefId: "MBB768",
         partnerReferenceId: "REF20260522",
@@ -106,15 +105,13 @@ test("create order saves the returned order details in the local database", asyn
         completedDateTime: null,
         PaymentStatusCode: null
     };
-    const { handler, dbPath, cleanup } = loadCreateOrderRoute(undefined, orderResponse);
+    const { handler, database, cleanup } = loadCreateOrderRoute(undefined, orderResponse);
     const response = createResponse();
     const webinitToken = "eyJhbGciOiJSUzI1NiJ9." +
         Buffer.from(JSON.stringify({ did: "user-768", digitalID: "wrong-user" })).toString("base64url") + ".sig";
     await handler({ body: { ...order, webinitToken } }, response);
 
-    const db = new DatabaseSync(dbPath);
-    const savedOrder = db.prepare("SELECT * FROM orders WHERE order_ref_id = ?").get("MBB768");
-    db.close();
+    const savedOrder = database.prepare("SELECT * FROM orders WHERE order_ref_id = ?").get("MBB768");
     assert.deepEqual({ ...savedOrder }, {
         order_ref_id: orderResponse.orderRefId,
         partner_reference_id: orderResponse.partnerReferenceId,

@@ -4,13 +4,11 @@ const path = require("path");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
 const { Buffer } = require("node:buffer");
-const { DatabaseSync } = require("node:sqlite");
 const { Pool } = require("pg");
 const { CompactSign, CompactEncrypt, compactDecrypt, compactVerify } = require("jose");
 const { rateLimit } = require("express-rate-limit");
 
 const app = express();
-const databasePath = process.env.LOCAL_DB_PATH || path.join(__dirname, "data", "orders.sqlite");
 const orderColumns = [
     "order_ref_id", "partner_reference_id", "partner_invoice_id", "currency", "amount",
     "created_at", "payment_status", "order_status", "partner_code", "partner_name",
@@ -33,7 +31,6 @@ const orderFieldNames = {
     payment_status_code: "PaymentStatusCode",
     digital_id: "digitalId"
 };
-let orderDatabase;
 let schemaInitialization;
 const postgresPool = process.env.DATABASE_URL
     ? new Pool({
@@ -41,68 +38,6 @@ const postgresPool = process.env.DATABASE_URL
         ...(process.env.PGSSL === "true" ? { ssl: { rejectUnauthorized: false } } : {})
     })
     : null;
-
-function getOrderDatabase() {
-    if (!orderDatabase) {
-        fs.mkdirSync(path.dirname(databasePath), { recursive: true });
-        orderDatabase = new DatabaseSync(databasePath);
-        orderDatabase.exec(`
-            CREATE TABLE IF NOT EXISTS orders (
-                order_ref_id TEXT PRIMARY KEY,
-                partner_reference_id TEXT NOT NULL,
-                partner_invoice_id TEXT NOT NULL,
-                currency TEXT NOT NULL,
-                amount INTEGER NOT NULL,
-                created_at TEXT NOT NULL,
-                payment_status TEXT NOT NULL,
-                order_status TEXT NOT NULL,
-                partner_code TEXT,
-                partner_name TEXT,
-                partner_invoice TEXT,
-                parner_ref_number TEXT,
-                status_description TEXT,
-                completed_date_time TEXT,
-                payment_status_code TEXT,
-                digital_id TEXT
-            )
-        `);
-        const existingColumns = new Set(
-            orderDatabase.prepare("PRAGMA table_info(orders)").all().map(column => column.name)
-        );
-        const legacyColumnNames = {
-            orderRefId: "order_ref_id",
-            partnerReferenceId: "partner_reference_id",
-            partnerInvoiceId: "partner_invoice_id",
-            createdAt: "created_at",
-            paymentStatus: "payment_status",
-            orderStatus: "order_status",
-            partnerCode: "partner_code",
-            partnerName: "partner_name",
-            PartnerInvoice: "partner_invoice",
-            ParnerRefNumber: "parner_ref_number",
-            statusDescription: "status_description",
-            completedDateTime: "completed_date_time",
-            PaymentStatusCode: "payment_status_code",
-            digitalId: "digital_id"
-        };
-        for (const [legacyName, columnName] of Object.entries(legacyColumnNames)) {
-            if (existingColumns.has(legacyName) && !existingColumns.has(columnName)) {
-                orderDatabase.exec(`ALTER TABLE orders RENAME COLUMN "${legacyName}" TO "${columnName}"`);
-                existingColumns.delete(legacyName);
-                existingColumns.add(columnName);
-            }
-        }
-        for (const column of orderColumns) {
-            if (!existingColumns.has(column)) {
-                orderDatabase.exec(`ALTER TABLE orders ADD COLUMN ${column} ${column === "amount" ? "INTEGER" : "TEXT"}`);
-            }
-        }
-        orderDatabase.exec(
-            "CREATE INDEX IF NOT EXISTS idx_orders_digital_id ON orders (digital_id, created_at)"
-        );
-    }
-    return orderDatabase;
-}
 
 async function initializePostgresSchema() {
     if (!schemaInitialization) {
@@ -136,21 +71,14 @@ async function initializePostgresSchema() {
 }
 
 async function queryOrderDatabase(sql, parameters = []) {
-    if (postgresPool) {
-        await initializePostgresSchema();
-        let index = 0;
-        const postgresSql = sql.replace(/\?/g, () => `$${++index}`);
-        const result = await postgresPool.query(postgresSql, parameters);
-        return { rows: result.rows, rowCount: result.rowCount };
+    if (!postgresPool) {
+        throw new Error("DATABASE_URL must be set to use the PostgreSQL database.");
     }
-
-    const statement = getOrderDatabase().prepare(sql);
-    if (/^\s*SELECT\b/i.test(sql)) {
-        const rows = statement.all(...parameters);
-        return { rows, rowCount: rows.length };
-    }
-    const result = statement.run(...parameters);
-    return { rows: [], rowCount: result.changes };
+    await initializePostgresSchema();
+    let index = 0;
+    const postgresSql = sql.replace(/\?/g, () => `$${++index}`);
+    const result = await postgresPool.query(postgresSql, parameters);
+    return { rows: result.rows, rowCount: result.rowCount };
 }
 
 function mapOrderFields(order) {
@@ -317,10 +245,10 @@ app.get("/api/local/orders", async (req, res) => {
         `);
         return res.json({ success: true, data: rows.map(mapOrderFields) });
     } catch (error) {
-        console.error("Unable to read local orders:", error);
+        console.error("Unable to read orders from PostgreSQL:", error);
         return res.status(500).json({
             success: false,
-            message: "Unable to load orders from the local database"
+            message: "Unable to load orders from PostgreSQL"
         });
     }
 });
@@ -337,10 +265,10 @@ app.get("/api/local/orders/:orderRefId", async (req, res) => {
         }
         return res.json({ success: true, data: mapOrderFields(order) });
     } catch (error) {
-        console.error("Unable to read local order:", error);
+        console.error("Unable to read order from PostgreSQL:", error);
         return res.status(500).json({
             success: false,
-            message: "Unable to load order from the local database"
+            message: "Unable to load order from PostgreSQL"
         });
     }
 });
@@ -479,10 +407,10 @@ app.post("/api/local/orders/payment-status", async (req, res) => {
         }
         return res.json({ success: true, data: { orderRefId, paymentStatus } });
     } catch (error) {
-        console.error("Unable to update local order payment status:", error);
+        console.error("Unable to update payment status in PostgreSQL:", error);
         return res.status(500).json({
             success: false,
-            message: "Unable to update payment status in the local database"
+            message: "Unable to update payment status in PostgreSQL"
         });
     }
 });
@@ -492,10 +420,10 @@ app.post("/api/local/orders/clear", async (req, res) => {
         const result = await queryOrderDatabase("DELETE FROM orders");
         return res.json({ success: true, deletedCount: result.rowCount });
     } catch (error) {
-        console.error("Unable to clear local orders:", error);
+        console.error("Unable to clear orders from PostgreSQL:", error);
         return res.status(500).json({
             success: false,
-            message: "Unable to clear orders from the local database"
+            message: "Unable to clear orders from PostgreSQL"
         });
     }
 });
@@ -908,21 +836,11 @@ app.use("/api", (error, req, res, next) => {
 const PORT = process.env.PORT || 10000;
 
 async function startServer() {
-    if (postgresPool) {
-        try {
-            await initializePostgresSchema();
-        } catch (error) {
-            console.error("Unable to initialize PostgreSQL schema:", error);
-            try {
-                await postgresPool.end();
-            } catch (shutdownError) {
-                console.error("Unable to close PostgreSQL connection pool:", shutdownError);
-            }
-            process.exitCode = 1;
-            return;
-        }
+    if (!postgresPool) {
+        throw new Error("DATABASE_URL must be set to start the server.");
     }
 
+    await initializePostgresSchema();
     app.listen(PORT, "0.0.0.0", (error) => {
         if (error) {
             console.error(`Unable to start server on port ${PORT}: ${error.message}`);
@@ -933,4 +851,7 @@ async function startServer() {
     });
 }
 
-startServer();
+startServer().catch(error => {
+    console.error("Unable to start server:", error);
+    process.exitCode = 1;
+});

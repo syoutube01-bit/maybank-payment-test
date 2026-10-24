@@ -5,6 +5,7 @@ const vm = require("node:vm");
 const { once } = require("node:events");
 const { test } = require("node:test");
 const express = require("express");
+const { createPostgresMock } = require("./postgres-test-pool");
 
 test("API errors are JSON over HTTP without changing page responses", async t => {
     const app = express();
@@ -12,14 +13,17 @@ test("API errors are JSON over HTTP without changing page responses", async t =>
     app.listen = () => {};
     const root = path.join(__dirname, "..");
     const errors = [];
+    const postgres = createPostgresMock();
     const context = vm.createContext({
-        require: name => name === "express" ? Object.assign(() => app, express) : require(name),
+        require: name => name === "express" ? Object.assign(() => app, express)
+            : name === "pg" ? postgres
+                : require(name),
         __dirname: root,
-        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: ":memory:" } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
         console: { log() {}, error: (...args) => errors.push(args) }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
-    const database = vm.runInContext("getOrderDatabase()", context);
+    const database = postgres.database;
     const server = listen.call(app, 0, "127.0.0.1");
     t.after(async () => {
         await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));

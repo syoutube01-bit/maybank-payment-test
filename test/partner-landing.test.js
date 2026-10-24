@@ -29,10 +29,17 @@ function loadLandingRoute() {
     const context = vm.createContext({
         require(name) {
             if (name === "express") return express;
+            if (name === "pg") return {
+                Pool: class {
+                    async query() {
+                        return { rows: [], rowCount: 0 };
+                    }
+                }
+            };
             return require(name);
         },
         __dirname: root,
-        process,
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
         console: { log() {}, error() {} }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);

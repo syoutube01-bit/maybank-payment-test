@@ -1,12 +1,11 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
 const { test } = require("node:test");
-const { DatabaseSync } = require("node:sqlite");
+const { createPostgresMock } = require("./postgres-test-pool");
 
-function loadServer(t, databasePath = ":memory:") {
+function loadServer(t) {
     const routes = new Map();
     const errors = [];
     const app = {
@@ -18,14 +17,17 @@ function loadServer(t, databasePath = ":memory:") {
         json() {}, urlencoded() {}, static() {}, text() {}
     });
     const root = path.join(__dirname, "..");
+    const postgres = createPostgresMock();
     const context = vm.createContext({
-        require: name => name === "express" ? express : require(name),
+        require: name => name === "express" ? express
+            : name === "pg" ? postgres
+                : require(name),
         __dirname: root,
-        process: { ...process, env: { ...process.env, DATABASE_URL: "", LOCAL_DB_PATH: databasePath } },
+        process: { ...process, env: { ...process.env, DATABASE_URL: "postgres://test" } },
         console: { log() {}, error: (...args) => errors.push(args) }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
-    const database = vm.runInContext("getOrderDatabase()", context);
+    const database = postgres.database;
     t.after(() => database.close());
     return {
         context, database, errors,
@@ -100,31 +102,6 @@ test("my orders rejects missing, malformed, expired or did-less tokens", async t
     assert.equal((await callAsync(myOrders, "Bearer " + jwt({
         did: "user-a", exp: Math.floor(Date.now() / 1000) + 60
     }))).statusCode, 200);
-});
-
-test("existing databases are migrated to snake_case and include the digital_id column", async t => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "orders-"));
-    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-    const file = path.join(dir, "orders.sqlite");
-    const legacy = new DatabaseSync(file);
-    legacy.exec(`CREATE TABLE orders (
-        orderRefId TEXT PRIMARY KEY, partnerReferenceId TEXT NOT NULL, partnerInvoiceId TEXT NOT NULL,
-        currency TEXT NOT NULL, amount INTEGER NOT NULL, createdAt TEXT NOT NULL,
-        paymentStatus TEXT NOT NULL, orderStatus TEXT NOT NULL)`);
-    legacy.close();
-
-    const { persist, myOrders, database } = loadServer(t, file);
-    await persist(order("MBB9", 100, "2026-10-23"), {}, "user-a");
-    assert.deepEqual(
-        database.prepare("PRAGMA table_info(orders)").all().map(column => column.name),
-        [
-            "order_ref_id", "partner_reference_id", "partner_invoice_id", "currency", "amount",
-            "created_at", "payment_status", "order_status", "partner_code", "partner_name",
-            "partner_invoice", "parner_ref_number", "status_description", "completed_date_time",
-            "payment_status_code", "digital_id"
-        ]
-    );
-    assert.deepEqual((await callAsync(myOrders, jwt({ did: "user-a" }))).body.data.map(o => o.orderRefId), ["MBB9"]);
 });
 
 function dpResponse() {
