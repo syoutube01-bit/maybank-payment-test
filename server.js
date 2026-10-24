@@ -907,11 +907,30 @@ app.use("/api", (error, req, res, next) => {
 
 const PORT = process.env.PORT || 10000;
 
-app.listen(PORT, "0.0.0.0", (error) => {
-    if (error) {
-        console.error(`Unable to start server on port ${PORT}: ${error.message}`);
-        process.exitCode = 1;
-        return;
+async function startServer() {
+    if (postgresPool) {
+        try {
+            await initializePostgresSchema();
+        } catch (error) {
+            console.error("Unable to initialize PostgreSQL schema:", error);
+            try {
+                await postgresPool.end();
+            } catch (shutdownError) {
+                console.error("Unable to close PostgreSQL connection pool:", shutdownError);
+            }
+            process.exitCode = 1;
+            return;
+        }
     }
-    console.log(`Server running on port ${PORT}`);
-});
+
+    app.listen(PORT, "0.0.0.0", (error) => {
+        if (error) {
+            console.error(`Unable to start server on port ${PORT}: ${error.message}`);
+            process.exitCode = 1;
+            return;
+        }
+        console.log(`Server running on port ${PORT}`);
+    });
+}
+
+startServer();

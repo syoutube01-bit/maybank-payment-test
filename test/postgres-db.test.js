@@ -6,6 +6,7 @@ const { test } = require("node:test");
 
 test("PostgreSQL mode initializes the snake_case schema and binds query parameters", async () => {
     const queries = [];
+    let listeningAfterSchemaCreation = false;
     class MockPool {
         constructor(options) {
             assert.equal(options.connectionString, "postgres://test");
@@ -16,7 +17,14 @@ test("PostgreSQL mode initializes the snake_case schema and binds query paramete
             return { rows: [], rowCount: 1 };
         }
     }
-    const app = { use() {}, listen() {}, get() {}, post() {} };
+    const app = {
+        use() {},
+        listen() {
+            listeningAfterSchemaCreation = queries.some(({ sql }) => /CREATE TABLE IF NOT EXISTS orders/.test(sql));
+        },
+        get() {},
+        post() {}
+    };
     const express = Object.assign(() => app, {
         json() {}, urlencoded() {}, static() {}, text() {}
     });
@@ -47,4 +55,5 @@ test("PostgreSQL mode initializes the snake_case schema and binds query paramete
     assert.match(queries[0].sql, /idx_orders_digital_id/);
     assert.equal(queries[1].sql, "UPDATE orders SET payment_status = $1 WHERE order_ref_id = $2");
     assert.deepEqual(queries[1].parameters, ["SUCCESS", "MBB123"]);
+    assert.equal(listeningAfterSchemaCreation, true);
 });
