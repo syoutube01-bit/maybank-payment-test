@@ -39,6 +39,7 @@
         }
         .wordmark {
             display: inline-flex;
+            min-width: 0;
             align-items: center;
             gap: 11px;
             color: #f6f5f2;
@@ -49,6 +50,7 @@
         }
         .wordmark-icon {
             display: grid;
+            flex-shrink: 0;
             width: 34px;
             height: 34px;
             place-items: center;
@@ -79,6 +81,11 @@
             border-color: #b69aff;
             color: #fff;
             background: #9e7afa20;
+        }
+        .site-header .header-actions {
+            flex-wrap: nowrap;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .signal-stage {
             display: grid;
@@ -306,7 +313,12 @@
             outline-offset: 4px;
         }
         @media (max-width: 780px) {
-            .site-header { padding: 20px 24px; }
+            .site-header { gap: 12px; padding: 20px 24px; }
+            .wordmark > span:last-child {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
             .signal-stage {
                 width: min(560px, calc(100% - 48px));
                 min-height: auto;
