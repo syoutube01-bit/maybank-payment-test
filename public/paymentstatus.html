@@ -3,96 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#11121b">
+    <meta name="theme-color" content="#f4f6f8">
 
     <title>Payment Status</title>
 
     <style>
-        * {
-            box-sizing: border-box;
+        * { box-sizing: border-box; }
+        :root {
+            color-scheme: light;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            color: #17324d;
+            background: #f4f6f8;
         }
-
         body {
-            margin: 0;
+            display: grid;
             min-height: 100vh;
             min-height: 100svh;
+            place-items: center;
+            margin: 0;
+            padding: clamp(16px, 4vw, 40px);
+            background:
+                radial-gradient(ellipse at 80% 0, rgba(255, 194, 14, 0.15), transparent 34rem),
+                #f4f6f8;
+        }
+        .status-shell { width: min(100%, 760px); }
+        .brand-row {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-family: Arial, sans-serif;
-            background: #11121b;
-            color: #f6f5f2;
-            padding: 24px;
+            gap: 12px;
+            margin: 0 0 18px 4px;
+            color: #526273;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
-
-        body::before {
-            position: fixed;
-            z-index: -1;
-            top: -250px;
-            right: -160px;
-            width: 650px;
-            height: 650px;
-            border-radius: 50%;
-            content: "";
-            background: radial-gradient(circle, #6339b94a 0%, #6339b900 70%);
-            pointer-events: none;
+        .brand-mark {
+            display: grid;
+            width: 36px;
+            height: 36px;
+            place-items: center;
+            border-radius: 12px;
+            color: #17324d;
+            background: #ffc20e;
         }
-
+        .brand-mark svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
         .status-box {
-            width: 100%;
-            min-width: 0;
-            max-width: 520px;
-            text-align: center;
-            background: #1b1b29;
-            border: 1px solid #3c3c4a;
-            border-radius: 18px;
-            padding: 40px 24px;
-            box-shadow: 0 12px 40px #9e7afa18;
+            position: relative;
+            overflow: hidden;
+            padding: clamp(24px, 6vw, 48px);
+            border: 1px solid #e5e9ef;
+            border-radius: 24px;
+            background: #fff;
+            box-shadow: 0 18px 55px rgba(23, 50, 77, 0.09);
         }
-
+        .status-box::before {
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: 5px;
+            content: "";
+            background: #ffc20e;
+        }
+        .status-kicker {
+            margin: 0 0 10px;
+            color: #826100;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+        }
         .status-text {
             margin: 0;
-            font-size: 32px;
+            color: #17324d;
+            font-size: clamp(28px, 5vw, 38px);
             overflow-wrap: anywhere;
-            line-height: 1.2;
-            font-weight: 800;
-            color: #b69aff;
+            line-height: 1.15;
+            letter-spacing: -0.04em;
         }
-
         .message {
-            color: #d0ceda;
+            margin: 12px 0 0;
+            color: #637386;
+            font-size: 15px;
             line-height: 1.6;
             overflow-wrap: anywhere;
         }
-
-        .message.error { color: #ffb4b4; }
-        .order-details { margin: 28px 0 0; text-align: left; }
-        .detail-row { padding: 16px 0; border-top: 1px solid #ffffff12; }
-        dt { margin-bottom: 8px; color: #aaa6b8; font-size: 13px; }
-        dd { margin: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
-        #paymentStatus { color: #b69aff; }
-
-        @media (max-width: 600px) {
-            body { padding: 20px 16px; }
-            .status-box { padding: 28px 16px; }
-            .status-text { font-size: 24px; }
+        .message.error { color: #a52b36; }
+        .details-heading {
+            margin: 32px 0 12px;
+            color: #526273;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .order-details {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin: 0;
+        }
+        .detail-row {
+            min-width: 0;
+            padding: 16px;
+            border: 1px solid #e7ebf0;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+        dt { margin-bottom: 8px; color: #718096; font-size: 12px; font-weight: 600; }
+        dd { margin: 0; color: #17324d; font-size: 15px; font-weight: 750; overflow-wrap: anywhere; }
+        #paymentStatus {
+            display: inline-flex;
+            max-width: 100%;
+            padding: 5px 10px;
+            border-radius: 999px;
+            color: #826100;
+            font-size: 12px;
+            background: #fff1c2;
+        }
+        @media (max-width: 520px) {
+            body { align-items: start; padding: 28px 16px; }
+            .brand-row { margin-bottom: 14px; }
+            .status-box { padding: 28px 20px; border-radius: 20px; }
+            .details-heading { margin-top: 26px; }
+            .order-details { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+            .detail-row { padding: 14px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
     </style>
 </head>
 
 <body>
 
-<main class="status-box">
-    <h1 class="status-text" id="statusText">Payment Status</h1>
-    <p class="message" id="message" role="status" aria-live="polite">Loading order details...</p>
-    <dl class="order-details" id="orderDetails" hidden>
-        <div class="detail-row"><dt>Order Reference Id</dt><dd id="orderRefId"></dd></div>
-        <div class="detail-row"><dt>Partner Reference Id</dt><dd id="partnerReferenceId"></dd></div>
-        <div class="detail-row"><dt>Partner Invoice Id</dt><dd id="partnerInvoiceId"></dd></div>
-        <div class="detail-row"><dt>Amount</dt><dd id="amount"></dd></div>
-        <div class="detail-row"><dt>Date</dt><dd><time id="createdAt"></time></dd></div>
-        <div class="detail-row"><dt>Payment Status</dt><dd id="paymentStatus"></dd></div>
-    </dl>
+<main class="status-shell">
+    <div class="brand-row">
+        <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 9h16M6 9v8m4-8v8m4-8v8m4-8v8M4 20h16M3 9l9-6 9 6" /></svg>
+        </span>
+        <span>Maybank payment</span>
+    </div>
+    <section class="status-box" aria-labelledby="statusText">
+        <p class="status-kicker">PAYMENT RECEIPT</p>
+        <h1 class="status-text" id="statusText">Payment Status</h1>
+        <p class="message" id="message" role="status" aria-live="polite">Loading order details...</p>
+        <h2 class="details-heading" id="detailsHeading" hidden>Order details</h2>
+        <dl class="order-details" id="orderDetails" aria-labelledby="detailsHeading" hidden>
+            <div class="detail-row"><dt>Order Reference Id</dt><dd id="orderRefId"></dd></div>
+            <div class="detail-row"><dt>Partner Reference Id</dt><dd id="partnerReferenceId"></dd></div>
+            <div class="detail-row"><dt>Partner Invoice Id</dt><dd id="partnerInvoiceId"></dd></div>
+            <div class="detail-row"><dt>Amount</dt><dd id="amount"></dd></div>
+            <div class="detail-row"><dt>Date</dt><dd><time id="createdAt"></time></dd></div>
+            <div class="detail-row"><dt>Payment Status</dt><dd id="paymentStatus"></dd></div>
+        </dl>
+    </section>
 </main>
 
 <script>
@@ -111,6 +176,7 @@ function getQueryParam(name) {
 window.addEventListener("DOMContentLoaded", async function () {
     const message = document.getElementById("message");
     const orderDetails = document.getElementById("orderDetails");
+    const detailsHeading = document.getElementById("detailsHeading");
     const orderId = getQueryParam("orderId") || getQueryParam("oid");
     if (!orderId) {
         message.textContent = "An orderId is required to load payment details.";
@@ -137,6 +203,7 @@ window.addEventListener("DOMContentLoaded", async function () {
             createdAtElement.textContent = createdAt.toISOString().slice(0, 10);
         }
         orderDetails.hidden = false;
+        detailsHeading.hidden = false;
         message.hidden = true;
     } catch (error) {
         console.error("Unable to load payment details:", error);

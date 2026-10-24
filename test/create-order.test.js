@@ -128,7 +128,8 @@ test("create order saves the returned order details in PostgreSQL", async () => 
         status_description: orderResponse.statusDescription,
         completed_date_time: orderResponse.completedDateTime,
         payment_status_code: orderResponse.PaymentStatusCode,
-        digital_id: "user-768"
+        digital_id: "user-768",
+        partner_id: null
     });
     cleanup();
 });

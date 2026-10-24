@@ -268,6 +268,7 @@ test("payment status updates persist all supplied partner and completion fields"
         status_description: "Payment completed successfully",
         completed_date_time: "2026-07-17T07:29:55Z",
         payment_status_code: "0000",
-        digital_id: null
+        digital_id: null,
+        partner_id: null
     });
 });

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#f5f1e7">
+    <meta name="theme-color" content="#111827">
     <title>Easybook | Your next journey</title>
     <style>
         * { box-sizing: border-box; }
@@ -283,6 +283,240 @@
         }
     </style>
     <link rel="stylesheet" href="/my-orders.css">
+    <style>
+        :root {
+            color-scheme: dark;
+            --ink: #f4f5ed;
+            --muted: #a3adbd;
+            --night: #111827;
+            --line: #344052;
+            --lime: #d8ff62;
+            --violet: #a997ff;
+            --coral: #ff8f70;
+        }
+        body {
+            color: var(--ink);
+            font-family: Inter, "Avenir Next", Avenir, "Segoe UI", sans-serif;
+            background: var(--night);
+        }
+        .site-header {
+            max-width: 1360px;
+            padding: 25px 56px;
+            border-bottom: 1px solid #ffffff14;
+        }
+        .wordmark { gap: 12px; font-size: 21px; font-weight: 750; }
+        .wordmark-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            color: var(--night);
+            font-size: 21px;
+            font-weight: 850;
+            background: var(--lime);
+            transform: none;
+        }
+        .api-test {
+            min-height: 42px;
+            padding: 0 17px;
+            border-color: var(--line);
+            color: var(--ink);
+            font-size: 13px;
+            transition: border-color 160ms ease, background-color 160ms ease;
+        }
+        .api-test:hover { border-color: var(--lime); color: var(--ink); background: #ffffff0c; }
+        .page-shell { width: min(1248px, calc(100% - 112px)); margin: 0 auto; padding: 58px 0 70px; }
+        .journey {
+            width: auto;
+            min-height: min(620px, calc(100svh - 130px));
+            grid-template-columns: .92fr 1.08fr;
+            gap: clamp(44px, 7vw, 100px);
+            margin: 0;
+            padding: 0;
+        }
+        .journey-copy { position: relative; z-index: 2; }
+        .eyebrow {
+            display: inline-flex;
+            gap: 9px;
+            margin-bottom: 25px;
+            color: var(--lime);
+            font-size: 11px;
+            letter-spacing: 1.8px;
+        }
+        .eyebrow::before {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--lime);
+            box-shadow: 0 0 16px #d8ff6280;
+        }
+        h1 {
+            font-family: inherit;
+            font-size: clamp(64px, 8.6vw, 112px);
+            font-weight: 760;
+            letter-spacing: -.085em;
+            line-height: .88;
+        }
+        .headline {
+            max-width: 430px;
+            margin: 25px 0 17px;
+            color: var(--violet);
+            font-family: inherit;
+            font-size: clamp(24px, 3vw, 36px);
+            font-style: normal;
+            font-weight: 600;
+            letter-spacing: -.055em;
+            line-height: 1.12;
+        }
+        .intro { max-width: 390px; color: var(--muted); font-size: 15px; line-height: 1.8; }
+        .primary-link {
+            min-height: 58px;
+            gap: 26px;
+            margin-top: 29px;
+            padding: 0 23px;
+            border: 0;
+            border-radius: 10px;
+            color: var(--night);
+            font-size: 14px;
+            font-weight: 800;
+            background: var(--lime);
+            box-shadow: 0 12px 30px #d8ff6224;
+            transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+        }
+        .primary-link:hover { background: #e5ff96; box-shadow: 0 15px 36px #d8ff6238; transform: translateY(-2px); }
+        .primary-link:disabled { color: var(--night); }
+        #paymentStatus { max-width: 390px; color: var(--muted); font-size: 13px; }
+        .artwork {
+            display: flex;
+            min-height: 510px;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ffffff14;
+            border-radius: 28px;
+            background:
+                radial-gradient(ellipse at 76% 19%, #a997ff44 0, transparent 36%),
+                radial-gradient(ellipse at 13% 95%, #d8ff6233 0, transparent 43%),
+                #202b40;
+        }
+        .artwork::before,
+        .artwork::after {
+            position: absolute;
+            border: 1px solid #ffffff14;
+            border-radius: 50%;
+            content: "";
+        }
+        .artwork::before { width: 440px; height: 440px; }
+        .artwork::after { width: 340px; height: 340px; }
+        .art-label {
+            position: absolute;
+            top: 31px;
+            left: 32px;
+            z-index: 1;
+            color: #f4f5ed99;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+        }
+        .orbit {
+            position: absolute;
+            width: min(76%, 410px);
+            aspect-ratio: 1;
+            border: 1px dashed #f4f5ed54;
+            border-radius: 50%;
+            transform: rotate(-24deg) scaleY(.76);
+        }
+        .orbit::before,
+        .orbit::after {
+            position: absolute;
+            width: 13px;
+            height: 13px;
+            border: 3px solid #202b40;
+            border-radius: 50%;
+            content: "";
+            background: var(--lime);
+            box-shadow: 0 0 0 2px var(--lime);
+        }
+        .orbit::before { top: 10%; left: 13%; }
+        .orbit::after { right: 8%; bottom: 27%; background: var(--coral); box-shadow: 0 0 0 2px var(--coral); }
+        .sun, .hill, .road { display: none; }
+        .travel-card {
+            width: min(76%, 370px);
+            margin-top: 0;
+            padding: 28px;
+            border: 1px solid #ffffff9c;
+            border-radius: 18px;
+            color: #171d2d;
+            background: #f7f8f4;
+            box-shadow: 0 28px 80px #080d1b80;
+            transform: rotate(-3deg);
+        }
+        .card-label { margin-bottom: 25px; color: #737b88; font-weight: 750; }
+        .route { grid-template-columns: 1fr 48px 1fr; gap: 10px; }
+        .route-stop strong {
+            color: #171d2d;
+            font-family: inherit;
+            font-size: 22px;
+            font-weight: 750;
+            letter-spacing: -.06em;
+        }
+        .route-stop span { color: #737b88; }
+        .route-line { height: 2px; background: #c9ced6; }
+        .route-line::after {
+            width: 10px;
+            height: 10px;
+            margin-top: -4px;
+            background: var(--violet);
+        }
+        .card-footer { margin-top: 26px; padding-top: 17px; border-color: #c9ced6; color: #656f7f; }
+        .card-footer span:last-child { color: #755fd0; font-weight: 700; }
+        .my-orders {
+            max-width: 650px;
+            margin: 54px 0 0;
+            padding: 24px;
+            border: 1px solid #ffffff14;
+            border-radius: 16px;
+            color: var(--ink);
+            background: #ffffff08;
+        }
+        .my-orders .my-orders-header h2 { font-size: 18px; }
+        .my-orders-refresh { border-color: var(--line); }
+        .my-orders-refresh:hover:not(:disabled) { background: #ffffff12; }
+        .my-orders-message { color: var(--muted); }
+        .my-order { border-color: #ffffff12; background: #ffffff08; }
+        .my-order:hover { background: #ffffff12; }
+        a:focus-visible, button:focus-visible { outline-color: var(--lime); }
+        @media (max-width: 820px) {
+            .site-header { padding: 20px 28px; }
+            .page-shell { width: min(620px, calc(100% - 56px)); padding-top: 40px; }
+            .journey {
+                min-height: auto;
+                grid-template-columns: 1fr;
+                gap: 42px;
+                padding: 0;
+            }
+            .artwork { min-height: 430px; }
+            h1 { font-size: clamp(70px, 14vw, 100px); }
+            .my-orders { margin-top: 16px; }
+        }
+        @media (max-width: 480px) {
+            .site-header { padding: 16px 20px; }
+            .wordmark { font-size: 19px; }
+            .api-test { min-height: 38px; padding: 0 13px; }
+            .page-shell { width: calc(100% - 40px); padding: 34px 0 45px; }
+            .journey { gap: 34px; }
+            .eyebrow { margin-bottom: 20px; font-size: 9px; }
+            h1 { font-size: clamp(62px, 17vw, 80px); }
+            .headline { margin-top: 20px; }
+            .artwork { min-height: 350px; border-radius: 20px; }
+            .artwork::before { width: 310px; height: 310px; }
+            .artwork::after { width: 240px; height: 240px; }
+            .art-label { top: 21px; left: 20px; font-size: 8px; }
+            .travel-card { width: 84%; padding: 22px; }
+            .route-stop strong { font-size: 19px; }
+            .card-footer { font-size: 9px; }
+            .my-orders { padding: 18px; }
+        }
+    </style>
 </head>
 <body>
     <header class="site-header">
@@ -290,10 +524,14 @@
             <span class="wordmark-icon" aria-hidden="true">e</span>
             <span>easybook</span>
         </a>
-        <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        <div class="header-actions">
+            <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-easybook" data-partner-id="mbb-mae-easybook">My orders</a>
+            <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        </div>
     </header>
-    <main class="journey">
-        <section aria-label="Easybook landing">
+    <main class="page-shell">
+      <div class="journey">
+        <section class="journey-copy" aria-label="Easybook landing">
             <p class="eyebrow">Make the journey yours</p>
             <h1>Easybook</h1>
             <p class="headline">A better way to get there.</p>
@@ -303,24 +541,10 @@
                 <span class="arrow" aria-hidden="true">↗</span>
             </button>
             <p id="paymentStatus" role="status" aria-live="polite"></p>
-            <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
-                <div class="my-orders-header">
-                    <h2 id="myOrdersHeading">My Orders</h2>
-                    <button class="my-orders-refresh" type="button" aria-label="Refresh my orders" title="Refresh my orders">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                            <path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9"/>
-                        </svg>
-                    </button>
-                </div>
-                <p class="my-orders-message" role="status" aria-live="polite"></p>
-                <ul class="my-orders-list"></ul>
-            </section>
         </section>
         <div class="artwork" aria-hidden="true">
-            <div class="sun"></div>
-            <div class="hill hill-back"></div>
-            <div class="hill"></div>
-            <div class="road"></div>
+            <span class="art-label">The world is yours to explore</span>
+            <div class="orbit"></div>
             <div class="travel-card">
                 <p class="card-label">A little more out there</p>
                 <div class="route">
@@ -331,6 +555,19 @@
                 <div class="card-footer"><span>Bus · Train · Ferry</span><span>Your next story</span></div>
             </div>
         </div>
+      </div>
+      <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
+          <div class="my-orders-header">
+              <h2 id="myOrdersHeading">My Orders</h2>
+              <button class="my-orders-refresh" type="button" aria-label="Refresh my orders" title="Refresh my orders">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                      <path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9"/>
+                  </svg>
+              </button>
+          </div>
+          <p class="my-orders-message" role="status" aria-live="polite"></p>
+          <ul class="my-orders-list"></ul>
+      </section>
     </main>
     <script src="/payment-session.js"></script>
     <script>
@@ -384,7 +621,8 @@
                 headers: {
                     "Content-Type": "text/plain",
                     "x-webinit-token": webInitToken,
-                    "x-access-token": accessToken
+                    "x-access-token": accessToken,
+                    "x-partner-id": "mbb-mae-easybook"
                 },
                 body: JSON.stringify({
                     partnerReferenceId: "REF20260522",

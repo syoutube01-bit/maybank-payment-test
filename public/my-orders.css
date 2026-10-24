@@ -1,77 +1,237 @@
-.my-orders {
-    margin-top: 32px;
-    color: inherit;
+.orders-page,
+.orders-page * { box-sizing: border-box; }
+
+.orders-page {
+    color-scheme: light;
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    color: #17324d;
+    background: #f4f6f8;
 }
-.my-orders-header {
+
+.orders-page {
+    min-height: 100vh;
+    min-height: 100svh;
+    margin: 0;
+    background:
+        radial-gradient(ellipse at 80% 0, rgba(255, 194, 14, 0.14), transparent 32rem),
+        #f4f6f8;
+}
+
+.orders-page .page {
+    width: min(100% - 48px, 960px);
+    margin: 0 auto;
+    padding: 32px 0 64px;
+}
+
+.orders-page .page-header {
+    display: flex;
+    min-height: 48px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.orders-page .back-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    border: 1px solid #dbe1e8;
+    border-radius: 999px;
+    color: #17324d;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    background: #fff;
+    transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.orders-page .back-link svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.orders-page .back-link:hover { border-color: #c5ccd6; background: #f9fafb; transform: translateX(-2px); }
+.orders-page .back-link:focus-visible,
+.orders-page .my-orders-refresh:focus-visible,
+.orders-page .my-order:focus-visible { outline: 3px solid #17324d; outline-offset: 3px; }
+
+.orders-page .partner-name {
+    margin: 0;
+    color: #526273;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-align: right;
+    text-transform: uppercase;
+}
+
+.orders-page .my-orders {
+    padding: clamp(24px, 5vw, 48px);
+    border: 1px solid #e5e9ef;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 18px 55px rgba(23, 50, 77, 0.08);
+}
+
+.orders-page .my-orders-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 28px;
 }
-.my-orders .my-orders-header h2 {
+
+.orders-page .my-orders-heading { min-width: 0; }
+.orders-page .eyebrow {
+    margin: 0 0 10px;
+    color: #826100;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+}
+
+.orders-page .my-orders .my-orders-header h1 {
     margin: 0;
-    font-size: 20px;
+    color: #17324d;
+    font-size: clamp(28px, 4vw, 38px);
+    letter-spacing: -0.04em;
+    line-height: 1.12;
 }
-.my-orders-refresh {
+
+.orders-page .my-orders-description {
+    margin: 10px 0 0;
+    color: #637386;
+    font-size: 15px;
+    line-height: 1.55;
+}
+
+.orders-page .my-orders-refresh {
     display: inline-flex;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 8px;
-    border: 1px solid currentColor;
-    border-radius: 50%;
-    background: transparent;
-    color: inherit;
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    color: #17324d;
+    background: #ffc20e;
     cursor: pointer;
+    transition: background-color 160ms ease, transform 160ms ease;
 }
-.my-orders-refresh:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
-.my-orders-refresh:focus-visible {
-    outline: 3px solid currentColor;
-    outline-offset: 2px;
-}
-.my-orders-refresh:disabled { opacity: 0.5; cursor: wait; }
-.my-orders-message {
+
+.orders-page .my-orders-refresh:hover:not(:disabled) { background: #f3b600; transform: translateY(-1px); }
+.orders-page .my-orders-refresh:disabled { opacity: 0.58; cursor: wait; }
+.orders-page .my-orders-refresh:disabled svg { animation: refresh-spin 1s linear infinite; }
+.orders-page .my-orders-message {
     margin: 0;
-    opacity: 0.8;
+    padding: 18px 20px;
+    border: 1px solid #e5e9ef;
+    border-radius: 14px;
+    color: #526273;
+    font-size: 14px;
+    line-height: 1.5;
     overflow-wrap: anywhere;
+    background: #f8fafc;
 }
-.my-orders-list {
+
+.orders-page .my-orders-list {
     display: grid;
-    gap: 8px;
+    gap: 12px;
     margin: 0;
     padding: 0;
     list-style: none;
 }
-.my-order {
+
+.orders-page .my-order {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 4px 12px;
-    padding: 12px 14px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 12px 20px;
+    padding: 20px 22px;
+    border: 1px solid #e5e9ef;
+    border-radius: 16px;
     color: inherit;
     text-decoration: none;
-    background: rgba(255, 255, 255, 0.7);
+    background: #fff;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
-.my-order:hover { background: rgba(255, 255, 255, 0.95); }
-.my-order:focus-visible {
-    outline: 3px solid currentColor;
-    outline-offset: 2px;
+
+.orders-page .my-order:hover {
+    border-color: #e4bd47;
+    box-shadow: 0 8px 22px rgba(23, 50, 77, 0.07);
+    transform: translateY(-1px);
 }
-.my-order-id { font-weight: 700; overflow-wrap: anywhere; }
-.my-order-status {
+
+.orders-page .my-order-id { min-width: 0; font-size: 15px; font-weight: 750; overflow-wrap: anywhere; }
+.orders-page .my-order-status {
     justify-self: end;
-    padding: 2px 8px;
+    padding: 6px 11px;
     border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    background: #fff3cd;
-    color: #664d03;
+    color: #826100;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #fff4ce;
 }
-.my-order-status[data-status="SUCCESS"],
-.my-order-status[data-status="PAID"] { background: #d1e7dd; color: #0f5132; }
-.my-order-status[data-status="FAILED"],
-.my-order-status[data-status="CANCELLED"] { background: #f8d7da; color: #842029; }
-.my-order-amount { font-size: 14px; }
-.my-order-date { justify-self: end; font-size: 13px; opacity: 0.75; }
+
+.orders-page .my-order-status[data-status="SUCCESS"],
+.orders-page .my-order-status[data-status="PAID"] { color: #17613c; background: #e0f4e8; }
+.orders-page .my-order-status[data-status="FAILED"],
+.orders-page .my-order-status[data-status="CANCELLED"] { color: #9e2f36; background: #fde8e8; }
+.orders-page .my-order-amount { color: #17324d; font-size: 14px; font-weight: 700; }
+.orders-page .my-order-date { justify-self: end; color: #718096; font-size: 13px; }
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.header-actions .api-test { margin: 0; }
+
+.my-orders-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 16px;
+}
+.my-orders .my-orders-header h2 { margin: 0; }
+.my-orders-header .my-orders-refresh { flex: 0 0 auto; }
+
+@keyframes refresh-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+    .orders-page .page { width: min(100% - 32px, 960px); padding: 20px 0 36px; }
+    .orders-page .page-header { margin-bottom: 20px; }
+    .orders-page .my-orders { padding: 24px 18px; border-radius: 20px; }
+    .orders-page .my-orders-header { align-items: flex-start; gap: 14px; margin-bottom: 22px; }
+    .orders-page .my-orders-refresh { width: 44px; height: 44px; border-radius: 14px; }
+    .orders-page .my-order { padding: 16px; gap: 10px 12px; }
+    .orders-page .my-order-id { font-size: 14px; }
+    .orders-page .my-order-date { font-size: 12px; }
+}
+
+@media (max-width: 360px) {
+    .orders-page .page { width: min(100% - 24px, 960px); }
+    .orders-page .my-orders { padding: 22px 14px; }
+    .orders-page .my-order { padding: 14px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .orders-page *, .orders-page *::before, .orders-page *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -126,7 +126,7 @@ test("DP create order persists did and My Orders filters the created orders by d
         const token = jwt({ did, digitalID: "wrong-user" });
         const res = dpResponse();
         await createDpOrder({
-            get: name => name === "x-webinit-token" ? token : "access-token",
+            get: name => name === "x-webinit-token" ? token : name === "x-access-token" ? "access-token" : undefined,
             body: { partnerInvoiceId: id, partnerReferenceId: "REF1", currency: "MYR", amount: 100 }
         }, res);
         assert.equal(res.statusCode, 201);
@@ -153,4 +153,56 @@ test("DP create order rejects invalid did tokens before encryption or upstream c
         assert.match(res.body, /Web-init/);
     }
     assert.equal(database.prepare("SELECT count(*) AS count FROM orders").get().count, 0);
+});
+
+async function callWithQuery(handler, token, query) {
+    const res = {
+        statusCode: 200,
+        status(code) { this.statusCode = code; return this; },
+        json(body) { this.body = JSON.parse(JSON.stringify(body)); return this; }
+    };
+    await handler({ query, get: name => name.toLowerCase() === "x-webinit-token" ? token : undefined }, res);
+    return res;
+}
+
+test("my orders can be filtered to a single landing page partner", async t => {
+    const { persist, myOrders } = loadServer(t);
+    await persist(order("MBB1", 100, "2026-10-21"), {}, "user-a", "mbb-mae-ctos");
+    await persist(order("MBB2", 100, "2026-10-22"), {}, "user-a", "mbb-mae-esim");
+    await persist(order("MBB3", 100, "2026-10-23"), {}, "user-b", "mbb-mae-ctos");
+    await persist(order("MBB1", 100, "2026-10-21"), {}, "user-a", null);
+    const token = jwt({ did: "user-a" });
+    const ids = async query => (await callWithQuery(myOrders, token, query)).body.data.map(o => o.orderRefId);
+    assert.deepEqual(await ids({ partnerId: "mbb-mae-ctos" }), ["MBB1"]);
+    assert.deepEqual(await ids({ partnerId: "mbb-mae-esim" }), ["MBB2"]);
+    assert.deepEqual(await ids({ partnerId: "mbb-mae-easybook" }), []);
+    assert.deepEqual(await ids({}), ["MBB2", "MBB1"]);
+    for (const partnerId of ["", "unknown", "__proto__", ["mbb-mae-ctos", "mbb-mae-esim"]]) {
+        const res = await callWithQuery(myOrders, token, { partnerId });
+        assert.equal(res.statusCode, 400, String(partnerId));
+        assert.equal(res.body.success, false);
+    }
+});
+
+test("DP create order stores the landing page partner and rejects unknown partners", async t => {
+    const { context, database, createDpOrder } = loadServer(t);
+    vm.runInContext(`
+        encryptDpBody = async body => body;
+        dpRequest = async (label, method, url, token, options) => ({
+            status: 201,
+            data: { ...JSON.parse(options.body), orderRefId: JSON.parse(options.body).partnerInvoiceId }
+        });
+    `, context);
+    const token = jwt({ did: "user-a" });
+    for (const [id, partnerId, status] of [["INV1", "mbb-mae-easybook", 201], ["INV2", undefined, 201], ["INV3", "bogus", 400]]) {
+        const res = dpResponse();
+        await createDpOrder({
+            get: name => name === "x-webinit-token" ? token : name === "x-partner-id" ? partnerId : "access-token",
+            body: { partnerInvoiceId: id, partnerReferenceId: "REF1", currency: "MYR", amount: 100 }
+        }, res);
+        assert.equal(res.statusCode, status, id);
+    }
+    assert.equal(database.prepare("SELECT partner_id FROM orders WHERE order_ref_id = ?").get("INV1").partner_id, "mbb-mae-easybook");
+    assert.equal(database.prepare("SELECT partner_id FROM orders WHERE order_ref_id = ?").get("INV2").partner_id, null);
+    assert.equal(database.prepare("SELECT count(*) AS count FROM orders").get().count, 2);
 });

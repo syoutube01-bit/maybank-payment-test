@@ -52,7 +52,9 @@
         list.replaceChildren();
         try {
             const webInitToken = await window.paymentSession.getWebInitToken();
-            const res = await fetch("/api/my/orders", {
+            const partnerId = section.dataset.partnerId;
+            const url = partnerId ? "/api/my/orders?partnerId=" + encodeURIComponent(partnerId) : "/api/my/orders";
+            const res = await fetch(url, {
                 method: "GET",
                 cache: "no-store",
                 headers: { "x-webinit-token": webInitToken }
@@ -74,7 +76,18 @@
         }
     }
 
+    // Points the landing page "My orders" button at the dedicated screen for that partner,
+    // keeping the current query string (e.g. MAE launch parameters).
+    function initializeMyOrdersLink() {
+        const link = document.getElementById("myOrdersLink");
+        if (!link || !link.dataset.partnerId) return;
+        const params = new URLSearchParams(window.location?.search || "");
+        params.set("partnerId", link.dataset.partnerId);
+        link.href = "/my-orders.html?" + params.toString();
+    }
+
     function initializeMyOrders() {
+        initializeMyOrdersLink();
         const refreshButton = document.querySelector("#myOrders .my-orders-refresh");
         if (refreshButton) refreshButton.addEventListener("click", loadMyOrders);
         return loadMyOrders();

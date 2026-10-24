@@ -41,6 +41,7 @@
             background: #007f89;
         }
         .api-test:hover { background: #00666e; }
+        .header-actions { margin-bottom: 4px; }
         .api-test:focus-visible {
             outline: 3px solid #17324d;
             outline-offset: 3px;
@@ -217,6 +218,7 @@
             background: #b8b8b8;
             cursor: not-allowed;
         }
+        .payment-section .my-orders { margin-top: 16px; }
         button:focus-visible, input:focus-visible, a:focus-visible {
             outline: 3px solid #17324d;
             outline-offset: 3px;
@@ -245,7 +247,10 @@
 </head>
 <body>
     <main class="page">
-        <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        <div class="header-actions">
+            <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-ctos" data-partner-id="mbb-mae-ctos">My orders</a>
+            <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        </div>
         <header class="brand-row">
             <div class="brand" aria-label="CTOS Score">
                 <h1>CTOS</h1>
@@ -404,7 +409,8 @@
                 headers: {
                     "Content-Type": "text/plain",
                     "x-webinit-token": webInitToken,
-                    "x-access-token": accessToken
+                    "x-access-token": accessToken,
+                    "x-partner-id": "mbb-mae-ctos"
                 },
                 body: JSON.stringify({
                     partnerReferenceId: "REF20260522",

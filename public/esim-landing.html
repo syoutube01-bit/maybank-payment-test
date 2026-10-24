@@ -171,6 +171,7 @@
             line-height: 1.5;
             overflow-wrap: anywhere;
         }
+        .copy .my-orders { margin-top: 128px; }
         .visual {
             position: relative;
             display: grid;
@@ -328,7 +329,10 @@
             <span class="wordmark-icon" aria-hidden="true">e</span>
             <span>travel connectivity</span>
         </a>
-        <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        <div class="header-actions">
+            <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-esim" data-partner-id="mbb-mae-esim">My orders</a>
+            <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+        </div>
     </header>
     <main class="signal-stage">
         <section class="copy" aria-label="eSIM landing">
@@ -426,7 +430,8 @@
                 headers: {
                     "Content-Type": "text/plain",
                     "x-webinit-token": webInitToken,
-                    "x-access-token": accessToken
+                    "x-access-token": accessToken,
+                    "x-partner-id": "mbb-mae-esim"
                 },
                 body: JSON.stringify({
                     partnerReferenceId: "REF20260522",

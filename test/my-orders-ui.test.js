@@ -163,3 +163,27 @@ test("refresh shows loading, prevents overlapping requests and recovers after AP
     assert.equal(requests, 3);
     assert.equal(ui.message.hidden, true);
 });
+
+test("partner pages have a My orders button next to API test linking to their own order screen", () => {
+    for (const [page, partnerId] of [["ctos-landing.html", "mbb-mae-ctos"],
+        ["easybook-landing.html", "mbb-mae-easybook"], ["esim-landing.html", "mbb-mae-esim"]]) {
+        const html = fs.readFileSync(path.join(root, page), "utf8");
+        assert.match(html, new RegExp(`<div class="header-actions">\\s*<a class="api-test" id="myOrdersLink" href="/my-orders.html\\?partnerId=${partnerId}" data-partner-id="${partnerId}">My orders</a>\\s*<a class="api-test" id="apiTestLink"`));
+        assert.match(html, new RegExp(`"x-partner-id": "${partnerId}"`));
+        assert.match(html, /id="myOrders"/);
+    }
+    const screen = fs.readFileSync(path.join(root, "my-orders.html"), "utf8");
+    assert.match(screen, /<script src="\/my-orders.js"><\/script>/);
+});
+
+test("orders screen requests only the selected partner's orders", async () => {
+    let requestedUrl;
+    const ui = loadOrders({
+        bridge: { async callAPI() { return { webInitToken: "token" }; } },
+        async fetch(url) { requestedUrl = url; return response([order("MBB1")]); }
+    });
+    ui.section.dataset.partnerId = "mbb-mae-ctos";
+    await ui.initialize();
+    assert.equal(requestedUrl, "/api/my/orders?partnerId=mbb-mae-ctos");
+    assert.equal(ui.list.children.length, 1);
+});

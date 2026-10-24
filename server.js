@@ -58,10 +58,14 @@ async function initializePostgresSchema() {
                 status_description TEXT,
                 completed_date_time TEXT,
                 payment_status_code TEXT,
-                digital_id TEXT
+                digital_id TEXT,
+                partner_id TEXT
             );
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_id TEXT;
             CREATE INDEX IF NOT EXISTS idx_orders_digital_id
-                ON orders (digital_id, created_at)
+                ON orders (digital_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_orders_digital_id_partner_id
+                ON orders (digital_id, partner_id, created_at)
         `).catch(error => {
             schemaInitialization = null;
             throw error;
@@ -125,7 +129,7 @@ const DP_TOKEN_URL = "https://staging.api.maybank.com/api/oauth2/v8/clientcred/t
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-async function persistOrderResponse(responseData, requestPayload = {}, digitalId = null) {
+async function persistOrderResponse(responseData, requestPayload = {}, digitalId = null, partnerId = null) {
     let order = responseData;
     if (typeof order === "string") {
         order = JSON.parse(order);
@@ -171,10 +175,11 @@ async function persistOrderResponse(responseData, requestPayload = {}, digitalId
             order_ref_id, partner_reference_id, partner_invoice_id, currency, amount,
             created_at, payment_status, order_status, partner_code, partner_name,
             partner_invoice, parner_ref_number, status_description, completed_date_time,
-            payment_status_code, digital_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            payment_status_code, digital_id, partner_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(order_ref_id) DO UPDATE SET
             digital_id = COALESCE(excluded.digital_id, orders.digital_id),
+            partner_id = COALESCE(excluded.partner_id, orders.partner_id),
             partner_reference_id = excluded.partner_reference_id,
             partner_invoice_id = excluded.partner_invoice_id,
             currency = excluded.currency,
@@ -205,7 +210,8 @@ async function persistOrderResponse(responseData, requestPayload = {}, digitalId
         storedOrder.statusDescription,
         storedOrder.completedDateTime,
         storedOrder.PaymentStatusCode,
-        digitalId
+        digitalId,
+        partnerId
     ]);
 }
 
@@ -281,13 +287,18 @@ app.get("/api/my/orders", async (req, res) => {
     } catch (error) {
         return res.status(401).json({ success: false, message: error.message });
     }
+    // Optional landing page filter, e.g. ?partnerId=mbb-mae-ctos.
+    const partnerId = req.query?.partnerId;
+    if (partnerId !== undefined && !Object.hasOwn(partnerLandingPages, partnerId)) {
+        return res.status(400).json({ success: false, message: "Unknown partnerId." });
+    }
     try {
         const { rows } = await queryOrderDatabase(`
             SELECT order_ref_id, payment_status, amount, currency, created_at,
                 partner_name, partner_invoice_id
-            FROM orders WHERE digital_id = ?
+            FROM orders WHERE digital_id = ?${partnerId ? " AND partner_id = ?" : ""}
             ORDER BY created_at DESC, order_ref_id DESC
-        `, [digitalId]);
+        `, partnerId ? [digitalId, partnerId] : [digitalId]);
         return res.json({ success: true, data: rows.map(mapOrderFields) });
     } catch (error) {
         console.error("Unable to read user orders:", error);
@@ -727,6 +738,10 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
         } catch (error) {
             return res.status(401).send(error.message);
         }
+        const partnerId = (req.get("x-partner-id") || "").trim() || null;
+        if (partnerId && !Object.hasOwn(partnerLandingPages, partnerId)) {
+            return res.status(400).send("Unknown x-partner-id.");
+        }
         const plaintextBody = JSON.stringify(orderPayload);
         const encryptedBody = await encryptDpBody(plaintextBody);
         const response = await dpRequest("DP create order", "post", DP_ORDERS_URL,
@@ -734,7 +749,7 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
                 body: encryptedBody,
                 accessToken
             });
-        await persistOrderResponse(response.data, orderPayload, digitalId);
+        await persistOrderResponse(response.data, orderPayload, digitalId, partnerId);
         return sendDpResponse(res, response);
     } catch (error) {
         return sendDpError(res, "DP create order", error);

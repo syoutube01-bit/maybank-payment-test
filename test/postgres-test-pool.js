@@ -6,7 +6,7 @@ function createPostgresMock() {
         "order_ref_id", "partner_reference_id", "partner_invoice_id", "currency", "amount",
         "created_at", "payment_status", "order_status", "partner_code", "partner_name",
         "partner_invoice", "parner_ref_number", "status_description", "completed_date_time",
-        "payment_status_code", "digital_id"
+        "payment_status_code", "digital_id", "partner_id"
     ];
 
     function splitSqlList(value) {
@@ -55,9 +55,10 @@ function createPostgresMock() {
             ));
             const existing = rows.find(row => row.order_ref_id === inserted.order_ref_id);
             if (existing) {
-                const previousDigitalId = existing.digital_id;
+                const { digital_id: previousDigitalId, partner_id: previousPartnerId } = existing;
                 Object.assign(existing, inserted);
                 if (inserted.digital_id == null) existing.digital_id = previousDigitalId ?? null;
+                if (inserted.partner_id == null) existing.partner_id = previousPartnerId ?? null;
             } else {
                 rows.push(inserted);
             }
@@ -103,20 +104,25 @@ function createPostgresMock() {
         }
 
         const selectMatch = statement.match(
-            /^SELECT\s+([\s\S]+?)\s+FROM orders(?:\s+WHERE\s+([a-z_]+)\s*=\s*(?:\$(\d+)|\?|\'([^\']*)'))?(?:\s+ORDER BY\s+([\s\S]+))?$/i
+            /^SELECT\s+([\s\S]+?)\s+FROM orders(?:\s+WHERE\s+([\s\S]+?))?(?:\s+ORDER BY\s+([\s\S]+))?$/i
         );
         if (selectMatch) {
             let selectedRows = rows;
             if (selectMatch[2]) {
-                const value = selectMatch[3]
-                        ? parameters[Number(selectMatch[3]) - 1]
-                        : selectMatch[4] !== undefined
-                            ? selectMatch[4]
-                            : parameters[0];
-                selectedRows = selectedRows.filter(row => row[selectMatch[2]] === value);
+                let parameterCursor = 0;
+                for (const condition of selectMatch[2].split(/\s+AND\s+/i)) {
+                    const match = condition.trim().match(/^([a-z_]+)\s*=\s*(?:\$(\d+)|(\?)|'([^']*)')$/i);
+                    if (!match) throw new Error(`Unsupported test condition: ${condition}`);
+                    const value = match[2]
+                        ? parameters[Number(match[2]) - 1]
+                        : match[3]
+                            ? parameters[parameterCursor++]
+                            : match[4];
+                    selectedRows = selectedRows.filter(row => row[match[1]] === value);
+                }
             }
-            if (selectMatch[5]) {
-                const sortFields = selectMatch[5].split(",").map(field => {
+            if (selectMatch[3]) {
+                const sortFields = selectMatch[3].split(",").map(field => {
                     const [column, direction] = field.trim().split(/\s+/);
                     return { column, descending: direction?.toUpperCase() === "DESC" };
                 });
