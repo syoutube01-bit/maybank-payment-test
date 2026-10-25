@@ -112,6 +112,8 @@ dd { margin: 0; color: #17324d; font-size: 15px; font-weight: 750; overflow-wrap
     font-size: 12px;
     background: #fff1c2;
 }
+#paymentStatus.status-success { color: #176b3a; background: #dcf5e5; }
+#paymentStatus.status-error { color: #a52b36; background: #fde8e8; }
 @media (max-width: 520px) {
     body { align-items: start; padding: 28px 16px; }
     .brand-row { margin-bottom: 14px; }

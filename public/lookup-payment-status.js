@@ -18,6 +18,13 @@
             document.getElementById(id).textContent =
                 typeof value === "string" && value.trim() ? value : "Not provided";
         }
+        const paymentStatus = document.getElementById("paymentStatus");
+        const normalizedStatus = String(fields.paymentStatus || "").trim().toUpperCase();
+        if (normalizedStatus === "SUCCESS") {
+            paymentStatus.classList.add("status-success");
+        } else if (["REJECT", "REJECTED", "CANCEL", "CANCELLED", "CANCELED"].includes(normalizedStatus)) {
+            paymentStatus.classList.add("status-error");
+        }
         const amount = order.amount;
         const hasAmount = (typeof amount === "number" && Number.isFinite(amount)) ||
             (typeof amount === "string" && amount.trim() && Number.isFinite(Number(amount)));

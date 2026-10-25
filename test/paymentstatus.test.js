@@ -67,6 +67,22 @@ test("payment page supports existing oid links and does not double-prefix MBB", 
     }
 });
 
+test("payment page colors successful and rejected or cancelled statuses while preserving pending", async () => {
+    for (const [status, expectedClass] of [
+        ["PENDING", undefined],
+        ["SUCCESS", "status-success"],
+        ["REJECT", "status-error"],
+        ["CANCEL", "status-error"]
+    ]) {
+        const { elements } = await loadPage("?orderId=777", {
+            ok: true, success: true, data: { ...savedOrder, paymentStatus: status }
+        });
+        const classes = elements.get("paymentStatus").classList;
+        assert.equal(Boolean(classes["status-success"]), expectedClass === "status-success");
+        assert.equal(Boolean(classes["status-error"]), expectedClass === "status-error");
+    }
+});
+
 test("payment page shows missing ID errors without fetching", async () => {
     for (const search of ["", "?orderId=null", "?orderId=undefined", "?orderId=%20"]) {
         const { requests, elements } = await loadPage(search);

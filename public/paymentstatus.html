@@ -70,6 +70,13 @@ window.addEventListener("DOMContentLoaded", async function () {
         for (const field of ["orderRefId", "partnerReferenceId", "partnerInvoiceId", "paymentStatus"]) {
             document.getElementById(field).textContent = order[field];
         }
+        const paymentStatus = document.getElementById("paymentStatus");
+        const normalizedStatus = String(order.paymentStatus || "").trim().toUpperCase();
+        if (normalizedStatus === "SUCCESS") {
+            paymentStatus.classList.add("status-success");
+        } else if (["REJECT", "REJECTED", "CANCEL", "CANCELLED", "CANCELED"].includes(normalizedStatus)) {
+            paymentStatus.classList.add("status-error");
+        }
         document.getElementById("amount").textContent = order.currency + " " + order.amount;
         const createdAt = order.createdAt ? new Date(order.createdAt) : null;
         if (createdAt && Number.isFinite(createdAt.getTime())) {

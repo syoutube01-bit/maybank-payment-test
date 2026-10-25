@@ -61,6 +61,20 @@ test("lookup receipt maps DP aliases, renders text safely and preserves zero amo
     assert.equal(elements.get("amount").textContent, "MYR 0");
 });
 
+test("lookup receipt colors successful and rejected or cancelled statuses while preserving pending", () => {
+    for (const [status, expectedClass] of [
+        ["PENDING", undefined],
+        ["SUCCESS", "status-success"],
+        ["REJECT", "status-error"],
+        ["CANCEL", "status-error"]
+    ]) {
+        const { elements } = loadPage(JSON.stringify({ ...savedOrder, paymentStatus: status }));
+        const classes = elements.get("paymentStatus").classList;
+        assert.equal(Boolean(classes["status-success"]), expectedClass === "status-success");
+        assert.equal(Boolean(classes["status-error"]), expectedClass === "status-error");
+    }
+});
+
 test("missing and invalid fields are not replaced with fabricated payment values", () => {
     for (const fields of [{}, { createdAt: "invalid", amount: {}, paymentStatus: {} }]) {
         const { elements } = loadPage(JSON.stringify({ orderRefId: "MBB1", ...fields }));
