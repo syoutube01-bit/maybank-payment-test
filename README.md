@@ -29,6 +29,12 @@ HTTP port, set `PORT` in `.env` or the environment.
 
 ## My Orders
 
+On the CTOS landing page, the API test link is hidden. Double-click the CTOS
+brand (the CTOS Score text) to open `/index.html`, retaining the current launch
+query parameters.
+Easybook and eSIM use the same hidden API test link; double-click their respective
+wordmarks to open it with the current launch query parameters.
+
 The CTOS, Easybook and eSIM landing pages and [My Orders](public/my-orders.html)
 share the same responsive order cards and loading logic. All four views request
 `/api/my/orders` using the MAE native web-init token and show the current user's
@@ -42,6 +48,11 @@ On My Orders, **Order ID** and **Invoice ID** request the corresponding DP looku
 API and open [Payment Status](public/lookup-payment-status.html) with the returned
 order details. Lookups accept DP responses with details under `order`,
 `responseData`, or `data`, as well as unwrapped order details.
+Both lookups use an in-page modal with a labelled input, Cancel and OK controls,
+without the browser-native website heading. Escape also cancels the dialog.
+After submitting either lookup dialog, a spinner is displayed until the request
+finishes. Lookup and refresh buttons are disabled while it runs; errors stop the
+spinner and remain visible for retry.
 This display-only screen shares the existing payment receipt
 layout but does not fetch local orders or initiate/update a payment. Lookup
 results are kept in the current tab's session storage (not in the URL), so the

@@ -11,7 +11,7 @@ const partners = [
 
 function loadPurchase({ page, platform, fetch, bridge }) {
     const elements = new Map();
-    for (const id of ["apiTestLink", "buyButton", "paymentStatus", "termsAgreement"]) {
+    for (const id of ["apiTestLink", "ctosBrand", "easybookBrand", "esimBrand", "buyButton", "paymentStatus", "termsAgreement"]) {
         elements.set(id, {
             href: "/index.html",
             disabled: id === "buyButton",
@@ -43,6 +43,23 @@ function loadPurchase({ page, platform, fetch, bridge }) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "../public/payment-session.js"), "utf8"), context);
     vm.runInContext(script, context);
     return { elements, window, click: () => elements.get("buyButton").listeners.click() };
+}
+
+for (const [page, brandId] of [["easybook-landing.html", "easybookBrand"], ["esim-landing.html", "esimBrand"]]) {
+    test(`${page} hides API test and opens it on a wordmark double-click with launch parameters`, () => {
+        const checkout = loadPurchase({ page });
+        const html = fs.readFileSync(path.join(__dirname, "../public", page), "utf8");
+        assert.match(html, /id="apiTestLink" href="\/index.html" hidden/);
+        assert.match(html, /\.api-test\[hidden\] \{ display: none; \}/);
+        assert.ok(html.includes(`<a class="wordmark" id="${brandId}"`));
+        const brand = checkout.elements.get(brandId);
+        assert.equal(brand.listeners.click, undefined);
+        assert.equal(checkout.window.location.href, "");
+        let prevented = false;
+        brand.listeners.dblclick({ preventDefault() { prevented = true; } });
+        assert.equal(prevented, true);
+        assert.equal(checkout.window.location.href, "/index.html?partnerId=mbb-mae-test");
+    });
 }
 
 for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.html"]) {

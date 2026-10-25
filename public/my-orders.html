@@ -32,6 +32,16 @@
             <ul class="my-orders-list"></ul>
         </section>
     </main>
+    <dialog class="lookup-dialog" id="lookupDialog" aria-labelledby="lookupLabel">
+        <form id="lookupForm">
+            <label id="lookupLabel" for="lookupValue"></label>
+            <input id="lookupValue" name="lookupValue" type="text" autocomplete="off" required autofocus>
+            <div class="lookup-dialog-actions">
+                <button id="lookupCancel" type="button">Cancel</button>
+                <button type="submit">OK</button>
+            </div>
+        </form>
+    </dialog>
     <script src="/payment-session.js"></script>
     <script>
         (() => {

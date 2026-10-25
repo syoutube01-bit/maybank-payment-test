@@ -40,6 +40,7 @@
             text-decoration: none;
             background: #007f89;
         }
+        .api-test[hidden] { display: none; }
         .api-test:hover { background: #00666e; }
         .header-actions { margin-bottom: 4px; }
         .api-test:focus-visible {
@@ -253,10 +254,10 @@
     <main class="page">
         <div class="header-actions">
             <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-ctos" data-partner-id="mbb-mae-ctos">My orders</a>
-            <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+            <a class="api-test" id="apiTestLink" href="/index.html" hidden>API test</a>
         </div>
         <header class="brand-row">
-            <div class="brand" aria-label="CTOS Score">
+            <div class="brand" id="ctosBrand" aria-label="CTOS Score">
                 <h1>CTOS</h1>
                 <span class="registered" aria-hidden="true">®</span>
                 <span class="score-label">Score</span>
@@ -345,6 +346,9 @@
     <script src="/payment-session.js"></script>
     <script>
         document.getElementById("apiTestLink").href += window.location.search;
+        document.getElementById("ctosBrand").addEventListener("dblclick", () => {
+            window.location.href = document.getElementById("apiTestLink").href;
+        });
         const termsAgreement = document.getElementById("termsAgreement");
         const buyButton = document.getElementById("buyButton");
         const paymentStatus = document.getElementById("paymentStatus");

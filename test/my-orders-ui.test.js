@@ -28,6 +28,27 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
     const backLink = element();
     const partnerName = element();
     const ordersLink = element();
+    const lookupDialog = element();
+    const lookupForm = element();
+    const lookupLabel = element();
+    const lookupValue = element();
+    const lookupCancel = element();
+    lookupValue.select = () => {};
+    lookupDialog.close = value => {
+        lookupDialog.returnValue = value || "";
+        lookupDialog.open = false;
+        lookupDialog.onclose();
+    };
+    lookupDialog.showModal = () => {
+        lookupDialog.open = true;
+        if (!ui.answerLookup) return;
+        const value = ui.answerLookup(lookupLabel.textContent, lookupValue.value);
+        if (value == null || !value.trim()) lookupCancel.onclick();
+        else {
+            lookupValue.value = value;
+            lookupForm.onsubmit({ preventDefault() {} });
+        }
+    };
     ordersLink.dataset.partnerId = new URLSearchParams(search).get("partnerId");
     const elements = {
         ".my-orders-message": message,
@@ -39,7 +60,8 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
         readyState: "loading",
         getElementById: id => ({
             myOrders: section, backLink, partnerName, myOrdersLink: screen ? null : ordersLink,
-            lookupByOrderId, lookupByInvoiceId
+            lookupByOrderId, lookupByInvoiceId,
+            lookupDialog, lookupForm, lookupLabel, lookupValue, lookupCancel
         })[id] || null,
         querySelector: () => button,
         addEventListener(name, handler) { this[name] = handler; },
@@ -51,8 +73,7 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
     const window = {
         nativeMessageService: bridge,
         location: { search, assign(url) { navigations.push(url); } },
-        sessionStorage: { setItem(key, value) { stored.set(key, value); } },
-        prompt: () => ""
+        sessionStorage: { setItem(key, value) { stored.set(key, value); } }
     };
     const context = vm.createContext({ window, document, fetch, atob, Date: clock, URLSearchParams });
     for (const file of ["payment-session.js", "my-orders.js"]) {
@@ -62,9 +83,12 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
         }
         vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context);
     }
-    return { window, section, message, list, button, lookupByOrderId, lookupByInvoiceId, backLink, partnerName, ordersLink,
+    const ui = { window, section, message, list, button, lookupByOrderId, lookupByInvoiceId, backLink, partnerName, ordersLink,
+        lookupDialog, lookupForm, lookupLabel, lookupValue, lookupCancel,
+        answerLookup: () => null,
         stored, navigations,
         initialize: () => document.DOMContentLoaded() };
+    return ui;
 }
 
 function response(orders, status = 200) {
@@ -203,7 +227,7 @@ test("Order ID and Invoice ID buttons call their matching lookup APIs and naviga
             return { ok: true, status: 200, async text() { return JSON.stringify(data); } };
         }
     });
-    ui.window.prompt = (message, defaultValue) => {
+    ui.answerLookup = (message, defaultValue) => {
         prompts.push([message, defaultValue]);
         return message === "Enter Order Reference Id" ? "REF 1" : "INV 2";
     };
@@ -230,6 +254,139 @@ test("Order ID and Invoice ID buttons call their matching lookup APIs and naviga
     assert.deepEqual(ui.navigations, ["/lookup-payment-status.html", "/lookup-payment-status.html"]);
     assert.equal(ui.lookupByOrderId.disabled, false);
     assert.equal(ui.lookupByInvoiceId.disabled, false);
+});
+
+test("both lookups show a loader through token and response processing and clear it on completion", async () => {
+    for (const button of ["lookupByOrderId", "lookupByInvoiceId"]) {
+        for (const failure of [null, "token", "lookup", "body"]) {
+            let finishToken;
+            let finishLookup;
+            let finishBody;
+            let tokenStarted;
+            let lookupStarted;
+            let bodyStarted;
+            const tokenReady = new Promise(resolve => { tokenStarted = resolve; });
+            const started = new Promise(resolve => { lookupStarted = resolve; });
+            const bodyReady = new Promise(resolve => { bodyStarted = resolve; });
+            const ui = loadOrders({
+                bridge: { async callAPI() { return { webInitToken: "token" }; } },
+                async fetch(url) {
+                    if (url === "/api/my/orders") return response([]);
+                    if (url === "/api/dp/token") {
+                        tokenStarted();
+                        return new Promise(resolve => { finishToken = resolve; });
+                    }
+                    lookupStarted();
+                    return new Promise(resolve => { finishLookup = resolve; });
+                }
+            });
+            await ui.initialize();
+            await ui.window.paymentSession.getWebInitToken();
+            ui.answerLookup = () => "MBB777";
+            const pending = ui[button].listeners.click();
+            const assertLoading = () => {
+                assert.equal(ui.message.dataset.loading, "true");
+                assert.equal(ui.message.hidden, false);
+                assert.equal(ui.message.textContent, "Looking up order...");
+                assert.equal(ui.lookupByOrderId.disabled, true);
+                assert.equal(ui.lookupByInvoiceId.disabled, true);
+                assert.equal(ui.button.disabled, true);
+            };
+            await tokenReady;
+            assertLoading();
+            await ui.window.myOrders.load();
+            await ui[button].listeners.click();
+            assertLoading();
+            await tokenReady;
+            finishToken({
+                ok: failure !== "token", status: failure === "token" ? 500 : 200,
+                async text() { return JSON.stringify({
+                    txnStatus: { code: "AOK200" }, responseData: { access_token: "access" }
+                }); }
+            });
+            if (failure !== "token") {
+                await started;
+                assertLoading();
+                finishLookup({
+                    ok: failure !== "lookup", status: failure === "lookup" ? 500 : 200,
+                    text() {
+                        bodyStarted();
+                        return new Promise(resolve => { finishBody = resolve; });
+                    }
+                });
+                await bodyReady;
+                assertLoading();
+                finishBody(failure === "body" ? "invalid JSON" : JSON.stringify({ order: order("MBB777") }));
+            }
+            await pending;
+            assert.equal(ui.message.dataset.loading, undefined);
+            assert.equal(ui.lookupByOrderId.disabled, false);
+            assert.equal(ui.lookupByInvoiceId.disabled, false);
+            assert.equal(ui.button.disabled, false);
+            assert.equal(ui.message.hidden, failure === null);
+            if (failure) {
+                assert.match(ui.message.textContent, /Lookup failed:/);
+                assert.deepEqual(ui.navigations, []);
+            } else {
+                assert.deepEqual(ui.navigations, ["/lookup-payment-status.html"]);
+            }
+        }
+    }
+});
+
+test("lookup dialog supports labels, defaults, blank validation, Cancel and Escape without native prompts", async () => {
+    const ui = loadOrders({
+        bridge: { async callAPI() { return { webInitToken: "token" }; } },
+        async fetch(url) {
+            assert.equal(url, "/api/my/orders");
+            return response([]);
+        }
+    });
+    await ui.initialize();
+    ui.answerLookup = null;
+    for (const [button, label, value] of [
+        ["lookupByOrderId", "Enter Order Reference Id", "MBB393"],
+        ["lookupByInvoiceId", "Enter Partner Invoice Id", "INV20260914212"]
+    ]) {
+        for (const cancel of ["button", "escape"]) {
+            const pending = ui[button].listeners.click();
+            assert.equal(ui.lookupDialog.open, true);
+            assert.equal(ui.lookupLabel.textContent, label);
+            assert.equal(ui.lookupValue.value, value);
+            await ui[button].listeners.click();
+            ui.lookupValue.value = "   ";
+            ui.lookupForm.onsubmit({ preventDefault() {} });
+            assert.equal(ui.lookupDialog.open, true);
+            assert.equal(ui.message.dataset.loading, undefined);
+            if (cancel === "button") ui.lookupCancel.onclick();
+            else ui.lookupDialog.close();
+            await pending;
+            assert.equal(ui.lookupDialog.open, false);
+            assert.equal(ui.message.textContent, "You have no orders yet.");
+        }
+    }
+    const html = fs.readFileSync(path.join(root, "my-orders.html"), "utf8");
+    assert.match(html, /<dialog[^>]+aria-labelledby="lookupLabel"/);
+    assert.match(html, /<label id="lookupLabel" for="lookupValue">/);
+    assert.doesNotMatch(fs.readFileSync(path.join(root, "my-orders.js"), "utf8"), /window\.prompt/);
+});
+
+test("cancelled and blank lookup prompts do not show a loader or request a token", async () => {
+    const ui = loadOrders({
+        bridge: { async callAPI() { return { webInitToken: "token" }; } },
+        async fetch(url) {
+            assert.equal(url, "/api/my/orders");
+            return response([]);
+        }
+    });
+    await ui.initialize();
+    for (const value of [null, "", "   "]) {
+        ui.answerLookup = () => value;
+        await ui.lookupByOrderId.listeners.click();
+        await ui.lookupByInvoiceId.listeners.click();
+        assert.equal(ui.message.dataset.loading, undefined);
+        assert.equal(ui.message.textContent, "You have no orders yet.");
+    }
 });
 
 test("lookups accept the DP order envelope and preserve all returned order details", async () => {
@@ -266,7 +423,7 @@ test("lookups accept the DP order envelope and preserve all returned order detai
             }
         });
         await ui.initialize();
-        ui.window.prompt = () => button === "lookupByOrderId" ? data.orderRefId : data.partnerInvoiceId;
+        ui.answerLookup = () => button === "lookupByOrderId" ? data.orderRefId : data.partnerInvoiceId;
         await ui[button].listeners.click();
         assert.deepEqual(JSON.parse(ui.stored.get("lookupPaymentStatus")), data);
         assert.deepEqual(ui.navigations, ["/lookup-payment-status.html"]);
@@ -297,7 +454,7 @@ test("lookups accept wrapped responses and existing DP field aliases", async () 
             }
         });
         await ui.initialize();
-        ui.window.prompt = () => "INV3";
+        ui.answerLookup = () => "INV3";
         await ui.lookupByInvoiceId.listeners.click();
         assert.equal(JSON.parse(ui.stored.get("lookupPaymentStatus")).orderId, "MBB3");
         assert.deepEqual(ui.navigations, ["/lookup-payment-status.html"]);
@@ -329,7 +486,7 @@ test("failed, malformed and missing-order lookups stay on My Orders and show err
             }
         });
         await ui.initialize();
-        ui.window.prompt = () => "MBB1";
+        ui.answerLookup = () => "MBB1";
         await ui.lookupByOrderId.listeners.click();
         assert.match(ui.message.textContent, expected);
         assert.equal(ui.message.hidden, false);
@@ -353,7 +510,7 @@ test("lookup storage failures are displayed without navigation", async () => {
         }
     });
     await ui.initialize();
-    ui.window.prompt = () => "MBB1";
+    ui.answerLookup = () => "MBB1";
     ui.window.sessionStorage.setItem = () => { throw new Error("Storage unavailable"); };
     await ui.lookupByOrderId.listeners.click();
     assert.match(ui.message.textContent, /Lookup failed: Storage unavailable/);

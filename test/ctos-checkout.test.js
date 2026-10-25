@@ -8,7 +8,7 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     const elements = new Map();
     const logs = [];
     const errors = [];
-    for (const id of ["apiTestLink", "termsAgreement", "buyButton", "paymentStatus", "viewPartyResponse"]) {
+    for (const id of ["apiTestLink", "ctosBrand", "termsAgreement", "buyButton", "paymentStatus", "viewPartyResponse"]) {
         elements.set(id, {
             href: "/index.html",
             checked: true,
@@ -62,6 +62,20 @@ const validOrder = {
     statusCode: "0000",
     redirection: { ios: "https://payment/ios", android: "https://payment/android" }
 };
+
+test("CTOS hides API test and opens it only on a brand double-click, preserving launch parameters", () => {
+    const checkout = loadCheckout();
+    const html = fs.readFileSync(path.join(__dirname, "../public/ctos-landing.html"), "utf8");
+    assert.match(html, /id="apiTestLink" href="\/index.html" hidden/);
+    assert.match(html, /\.api-test\[hidden\] \{ display: none; \}/);
+    assert.match(html, /<div class="brand" id="ctosBrand" aria-label="CTOS Score">/);
+    assert.doesNotMatch(html, /getElementById\("scoreGauge"\)/);
+    const brand = checkout.elements.get("ctosBrand");
+    assert.equal(brand.listeners.click, undefined);
+    assert.equal(checkout.window.location.href, "");
+    brand.listeners.dblclick();
+    assert.equal(checkout.window.location.href, "/index.html?partnerId=mbb-mae-ctos");
+});
 
 test("CTOS landing page requests view party once on load", async () => {
     const requests = [];

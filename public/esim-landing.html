@@ -77,6 +77,7 @@
             background: #ffffff08;
             transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
         }
+        .api-test[hidden] { display: none; }
         .api-test:hover {
             border-color: #b69aff;
             color: #fff;
@@ -345,13 +346,13 @@
 </head>
 <body>
     <header class="site-header">
-        <a class="wordmark" href="#" aria-label="eSIM home">
+        <a class="wordmark" id="esimBrand" href="#" aria-label="eSIM home">
             <span class="wordmark-icon" aria-hidden="true">e</span>
             <span>travel connectivity</span>
         </a>
         <div class="header-actions">
             <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-esim" data-partner-id="mbb-mae-esim">My orders</a>
-            <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+            <a class="api-test" id="apiTestLink" href="/index.html" hidden>API test</a>
         </div>
     </header>
     <main class="signal-stage">
@@ -402,6 +403,10 @@
     <script>
         const apiTestLink = document.getElementById("apiTestLink");
         apiTestLink.href += window.location.search;
+        document.getElementById("esimBrand").addEventListener("dblclick", event => {
+            event.preventDefault();
+            window.location.href = apiTestLink.href;
+        });
         const buyButton = document.getElementById("buyButton");
         const paymentStatus = document.getElementById("paymentStatus");
         let isBuying = false;

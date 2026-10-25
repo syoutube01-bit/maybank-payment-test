@@ -323,6 +323,7 @@
             font-size: 13px;
             transition: border-color 160ms ease, background-color 160ms ease;
         }
+        .api-test[hidden] { display: none; }
         .api-test:hover { border-color: var(--lime); color: var(--ink); background: #ffffff0c; }
         .page-shell { width: min(1248px, calc(100% - 112px)); margin: 0 auto; padding: 58px 0 70px; }
         .journey {
@@ -521,13 +522,13 @@
 </head>
 <body>
     <header class="site-header">
-        <a class="wordmark" href="#" aria-label="Easybook home">
+        <a class="wordmark" id="easybookBrand" href="#" aria-label="Easybook home">
             <span class="wordmark-icon" aria-hidden="true">e</span>
             <span>easybook</span>
         </a>
         <div class="header-actions">
             <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-easybook" data-partner-id="mbb-mae-easybook">My orders</a>
-            <a class="api-test" id="apiTestLink" href="/index.html">API test</a>
+            <a class="api-test" id="apiTestLink" href="/index.html" hidden>API test</a>
         </div>
     </header>
     <main class="page-shell">
@@ -574,6 +575,10 @@
     <script>
         const apiTestLink = document.getElementById("apiTestLink");
         apiTestLink.href += window.location.search;
+        document.getElementById("easybookBrand").addEventListener("dblclick", event => {
+            event.preventDefault();
+            window.location.href = apiTestLink.href;
+        });
         const buyButton = document.getElementById("buyButton");
         const paymentStatus = document.getElementById("paymentStatus");
         let isBuying = false;

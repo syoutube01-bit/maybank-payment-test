@@ -45,19 +45,48 @@
 
     let isLoading = false;
     let isLookingUp = false;
+    let isPrompting = false;
+
+    function promptLookup(message, defaultValue) {
+        const dialog = document.getElementById("lookupDialog");
+        const input = document.getElementById("lookupValue");
+        document.getElementById("lookupLabel").textContent = message;
+        input.value = defaultValue;
+        dialog.returnValue = "";
+        return new Promise(resolve => {
+            document.getElementById("lookupForm").onsubmit = event => {
+                event.preventDefault();
+                if (input.value.trim()) dialog.close("confirm");
+            };
+            document.getElementById("lookupCancel").onclick = () => dialog.close();
+            dialog.onclose = () => resolve(dialog.returnValue === "confirm" ? input.value.trim() : null);
+            dialog.showModal();
+            input.select();
+        });
+    }
 
     async function lookupOrder(endpoint, parameter, promptMessage, defaultValue) {
-        const value = window.prompt(promptMessage, defaultValue);
-        if (!value || !value.trim() || isLookingUp) return;
+        if (isLookingUp || isLoading || isPrompting) return;
+        isPrompting = true;
+        let value;
+        try {
+            value = await promptLookup(promptMessage, defaultValue);
+        } finally {
+            isPrompting = false;
+        }
+        if (!value || !value.trim()) return;
 
         const section = document.getElementById("myOrders");
         const message = section.querySelector(".my-orders-message");
+        const refreshButton = section.querySelector(".my-orders-refresh");
         const lookupButtons = [
             document.getElementById("lookupByOrderId"),
             document.getElementById("lookupByInvoiceId")
         ];
         isLookingUp = true;
+        refreshButton.disabled = true;
         lookupButtons.forEach(button => { button.disabled = true; });
+        message.dataset.loading = "true";
         message.hidden = false;
         message.textContent = "Looking up order...";
         try {
@@ -96,17 +125,20 @@
             }
             window.sessionStorage.setItem("lookupPaymentStatus", JSON.stringify(order));
             window.location.assign("/lookup-payment-status.html");
+            message.hidden = true;
         } catch (error) {
             message.textContent = "Lookup failed: " + error.message;
         } finally {
+            delete message.dataset.loading;
             isLookingUp = false;
+            refreshButton.disabled = false;
             lookupButtons.forEach(button => { button.disabled = false; });
         }
     }
 
     async function loadMyOrders() {
         const section = document.getElementById("myOrders");
-        if (!section || isLoading) return;
+        if (!section || isLoading || isLookingUp) return;
         const message = section.querySelector(".my-orders-message");
         const list = section.querySelector(".my-orders-list");
         const refreshButton = section.querySelector(".my-orders-refresh");
