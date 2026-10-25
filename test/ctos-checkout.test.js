@@ -184,6 +184,31 @@ for (const [platform, destination] of [["iPhone", "ios"], ["Linux aarch64", "and
     });
 }
 
+test("Buy retries a 401 create-order response with a fresh web-init token and the same order", async () => {
+    const requests = [];
+    let bridgeCalls = 0;
+    let orderAttempts = 0;
+    const checkout = loadCheckout({
+        bridge: { async callAPI() { return { webInitToken: "init-token-" + ++bridgeCalls }; } },
+        async fetch(url, options) {
+            requests.push({ url, options });
+            if (url === "/api/dp/token") return response(validToken);
+            orderAttempts++;
+            return orderAttempts === 1 ? response("Unauthorized", 401) : response(validOrder);
+        }
+    });
+
+    await checkout.click();
+
+    const orders = requests.filter(({ url }) => url === "/api/dp/create-order");
+    assert.equal(bridgeCalls, 2);
+    assert.equal(orders.length, 2);
+    assert.equal(orders[0].options.headers["x-webinit-token"], "init-token-1");
+    assert.equal(orders[1].options.headers["x-webinit-token"], "init-token-2");
+    assert.equal(orders[0].options.body, orders[1].options.body);
+    assert.equal(checkout.window.location.href, "m2ulife://payment/ios");
+});
+
 test("Buy requires agreement and prevents duplicate requests while pending", async () => {
     let resolveToken;
     let calls = 0;

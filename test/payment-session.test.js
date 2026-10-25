@@ -75,6 +75,16 @@ test("an unexpired token is reused and an expiring token is replaced by a new na
     assert.equal(calls, 3);
 });
 
+test("fresh web-init requests bypass the cached token and replace it", async () => {
+    let calls = 0;
+    const window = loadSession({ async callAPI() { return { webInitToken: "token-" + ++calls }; } });
+    assert.equal(await window.paymentSession.getWebInitToken(), "token-1");
+    assert.equal(await window.paymentSession.getFreshWebInitToken(), "token-2");
+    assert.equal(await window.paymentSession.getFreshWebInitToken(), "token-3");
+    assert.equal(await window.paymentSession.getWebInitToken(), "token-3");
+    assert.equal(calls, 3);
+});
+
 test("a new page session retrieves its own native token", async () => {
     let calls = 0;
     const bridge = { async callAPI() { return { webInitToken: "token-" + ++calls }; } };
