@@ -45,16 +45,6 @@
                 });
             }
             return pendingToken;
-        },
-        getFreshWebInitToken() {
-            cachedToken = undefined;
-            pendingToken = undefined;
-            return requestNativeToken().then(token => {
-                cachedToken = token;
-                return token;
-            }, error => {
-                throw new Error("Get Web Init Token: " + error.message);
-            });
         }
     };
 })();

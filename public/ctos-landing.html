@@ -411,30 +411,24 @@
         }
 
         async function createOrder(accessToken) {
-            const body = JSON.stringify({
-                partnerReferenceId: "REF20260522",
-                currency: "MYR",
-                amount: 100,
-                remark: "CTOS Score Report",
-                partnerInvoiceId: buildPartnerInvoiceId()
-            });
-            let webInitToken = await window.paymentSession.getFreshWebInitToken();
+            const webInitToken = await window.paymentSession.getWebInitToken();
             logUserId(webInitToken);
-            const sendCreateOrder = token => fetch("/api/dp/create-order", {
+            const res = await fetch("/api/dp/create-order", {
                 method: "POST",
                 headers: {
                     "Content-Type": "text/plain",
-                    "x-webinit-token": token,
+                    "x-webinit-token": webInitToken,
                     "x-access-token": accessToken,
                     "x-partner-id": "mbb-mae-ctos"
                 },
-                body
+                body: JSON.stringify({
+                    partnerReferenceId: "REF20260522",
+                    currency: "MYR",
+                    amount: 100,
+                    remark: "CTOS Score Report",
+                    partnerInvoiceId: buildPartnerInvoiceId()
+                })
             });
-            let res = await sendCreateOrder(webInitToken);
-            if (res.status === 401) {
-                webInitToken = await window.paymentSession.getFreshWebInitToken();
-                res = await sendCreateOrder(webInitToken);
-            }
             const text = await res.text();
             if (!res.ok) {
                 throw new Error("Create Order: HTTP " + res.status + "\n" + text);
