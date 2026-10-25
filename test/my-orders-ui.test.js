@@ -232,6 +232,49 @@ test("Order ID and Invoice ID buttons call their matching lookup APIs and naviga
     assert.equal(ui.lookupByInvoiceId.disabled, false);
 });
 
+test("lookups accept the DP order envelope and preserve all returned order details", async () => {
+    const data = {
+        statusCode: "0000",
+        orderRefId: "MBB777",
+        partnerReferenceId: "REF20260522",
+        partnerInvoiceId: "INV15486272711",
+        currency: "MYR",
+        amount: 100,
+        createdAt: "2026-10-23T15:45:43.601290",
+        paymentStatus: "SUCCESS",
+        token: null,
+        redirection: null,
+        partnerInfo: {
+            partnerName: "Ctos",
+            partnerImageUrl: "https://example.com/partner.png"
+        },
+        orderStatus: "SUCCESS"
+    };
+    for (const button of ["lookupByOrderId", "lookupByInvoiceId"]) {
+        const ui = loadOrders({
+            bridge: { async callAPI() { return { webInitToken: "token" }; } },
+            async fetch(url) {
+                if (url === "/api/my/orders") return response([]);
+                return { ok: true, status: 200, async text() {
+                    return JSON.stringify(url === "/api/dp/token"
+                        ? { txnStatus: { code: "AOK200" }, responseData: { access_token: "access" } }
+                        : {
+                            statusCode: "0000", status: "SUCCESS",
+                            message: "Order retrieved successfully", order: data
+                        });
+                } };
+            }
+        });
+        await ui.initialize();
+        ui.window.prompt = () => button === "lookupByOrderId" ? data.orderRefId : data.partnerInvoiceId;
+        await ui[button].listeners.click();
+        assert.deepEqual(JSON.parse(ui.stored.get("lookupPaymentStatus")), data);
+        assert.deepEqual(ui.navigations, ["/lookup-payment-status.html"]);
+        assert.equal(ui.lookupByOrderId.disabled, false);
+        assert.equal(ui.lookupByInvoiceId.disabled, false);
+    }
+});
+
 test("lookups accept wrapped responses and existing DP field aliases", async () => {
     const data = {
         orderId: "MBB3", PartnerInvoice: "INV3", ParnerRefNumber: "REF3",
@@ -267,7 +310,10 @@ test("failed, malformed and missing-order lookups stay on My Orders and show err
         [200, "not JSON", /Lookup failed:/],
         [200, JSON.stringify({ success: false, message: "Rejected" }), /Rejected/],
         [200, JSON.stringify({ statusCode: "9999", message: "Not found" }), /Not found/],
+        [200, JSON.stringify({ statusCode: "9999", message: "Rejected", order: order("MBB1") }), /Rejected/],
         [200, JSON.stringify({ txnStatus: { code: "ERROR", message: "Denied" } }), /Denied/],
+        ...[null, [], {}, { orderRefId: " " }, { orderRefId: 123 }].map(data =>
+            [200, JSON.stringify({ statusCode: "0000", order: data }), /no valid order details/]),
         ...[null, [], {}, { orderRefId: " " }, { orderRefId: 123 }].map(data =>
             [200, JSON.stringify(data), /no valid order details/])
     ]) {

@@ -40,7 +40,9 @@ button to retry.
 
 On My Orders, **Order ID** and **Invoice ID** request the corresponding DP lookup
 API and open [Payment Status](public/lookup-payment-status.html) with the returned
-order details. This display-only screen shares the existing payment receipt
+order details. Lookups accept DP responses with details under `order`,
+`responseData`, or `data`, as well as unwrapped order details.
+This display-only screen shares the existing payment receipt
 layout but does not fetch local orders or initiate/update a payment. Lookup
 results are kept in the current tab's session storage (not in the URL), so the
 screen can be refreshed. Missing response fields are shown as "Not provided";

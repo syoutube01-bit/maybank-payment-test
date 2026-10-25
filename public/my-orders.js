@@ -83,7 +83,7 @@
                 throw new Error("HTTP " + res.status + "\n" + responseText);
             }
             const result = JSON.parse(responseText);
-            const order = result?.responseData ?? result?.data ?? result;
+            const order = result?.order ?? result?.responseData ?? result?.data ?? result;
             if (result?.success === false ||
                 (result?.statusCode != null && result.statusCode !== "0000") ||
                 (result?.txnStatus?.code != null && result.txnStatus.code !== "AOK200")) {
