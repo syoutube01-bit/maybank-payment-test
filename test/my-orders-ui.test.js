@@ -102,11 +102,11 @@ function order(id, status = "PENDING") {
     return { orderRefId: id, paymentStatus: status, amount: 100, currency: "MYR", createdAt: "2026-10-23" };
 }
 
-test("partner landing pages do not include My Orders links or embedded order sections", () => {
+test("partner landing pages keep the top My Orders link without embedded order sections", () => {
     for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.html"]) {
         const html = fs.readFileSync(path.join(root, page), "utf8");
-        assert.doesNotMatch(html, /my orders/i);
-        assert.doesNotMatch(html, /my-orders(?:\.css|\.js|\.html)/i);
+        assert.match(html, /<a class="api-test" id="myOrdersLink" href="\/my-orders\.html\?partnerId=mbb-mae-[^"]+" data-partner-id="mbb-mae-[^"]+">My orders<\/a>/);
+        assert.doesNotMatch(html, /my-orders\.(?:css|js)/i);
         assert.doesNotMatch(html, /id="myOrders"/);
     }
 });
@@ -517,12 +517,13 @@ test("lookup storage failures are displayed without navigation", async () => {
     assert.deepEqual(ui.navigations, []);
 });
 
-test("partner landing pages retain their partner identity without an embedded orders link", () => {
+test("partner landing pages link to their own orders while retaining partner identity", () => {
     for (const [page, partnerId] of [["ctos-landing.html", "mbb-mae-ctos"],
         ["easybook-landing.html", "mbb-mae-easybook"], ["esim-landing.html", "mbb-mae-esim"]]) {
         const html = fs.readFileSync(path.join(root, page), "utf8");
         assert.match(html, new RegExp(`"x-partner-id": "${partnerId}"`));
-        assert.doesNotMatch(html, /id="myOrdersLink"|id="myOrders"/);
+        assert.match(html, new RegExp(`<a class="api-test" id="myOrdersLink" href="/my-orders.html\\?partnerId=${partnerId}" data-partner-id="${partnerId}">My orders</a>`));
+        assert.doesNotMatch(html, /id="myOrders"/);
     }
     const screen = fs.readFileSync(path.join(root, "my-orders.html"), "utf8");
     assert.match(screen, /<script src="\/my-orders.js"><\/script>/);
