@@ -179,15 +179,6 @@
             line-height: 1.5;
             overflow-wrap: anywhere;
         }
-        .copy .my-orders {
-            --orders-ink: #f6f5f2;
-            --orders-muted: #b9b3ca;
-            --orders-line: #3c354e;
-            --orders-card: #1c1929;
-            --orders-accent: #b69aff;
-            --orders-button-ink: #11121b;
-            margin-top: 48px;
-        }
         .visual {
             position: relative;
             display: grid;
@@ -342,7 +333,6 @@
             *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
         }
     </style>
-    <link rel="stylesheet" href="/my-orders.css">
 </head>
 <body>
     <header class="site-header">
@@ -351,7 +341,6 @@
             <span>travel connectivity</span>
         </a>
         <div class="header-actions">
-            <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-esim" data-partner-id="mbb-mae-esim">My orders</a>
             <a class="api-test" id="apiTestLink" href="/index.html" hidden>API test</a>
         </div>
     </header>
@@ -366,18 +355,6 @@
                 <span class="arrow" aria-hidden="true">↗</span>
             </button>
             <p id="paymentStatus" role="status" aria-live="polite"></p>
-            <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
-                <div class="my-orders-header">
-                    <h2 id="myOrdersHeading">My Orders</h2>
-                    <button class="my-orders-refresh" type="button" aria-label="Refresh my orders" title="Refresh my orders">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                            <path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9"/>
-                        </svg>
-                    </button>
-                </div>
-                <p class="my-orders-message" role="status" aria-live="polite"></p>
-                <ul class="my-orders-list"></ul>
-            </section>
         </section>
         <div class="visual" aria-hidden="true">
             <div class="orbit orbit-two"></div>
@@ -501,6 +478,5 @@
             }
         });
     </script>
-    <script src="/my-orders.js"></script>
 </body>
 </html>

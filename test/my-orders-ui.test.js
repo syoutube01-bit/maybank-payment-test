@@ -102,12 +102,12 @@ function order(id, status = "PENDING") {
     return { orderRefId: id, paymentStatus: status, amount: 100, currency: "MYR", createdAt: "2026-10-23" };
 }
 
-test("all partner pages have an accessible refresh icon next to My Orders", () => {
+test("partner landing pages do not include My Orders links or embedded order sections", () => {
     for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.html"]) {
         const html = fs.readFileSync(path.join(root, page), "utf8");
-        assert.match(html, /class="my-orders-header">\s*<h2 id="myOrdersHeading">My Orders<\/h2>\s*<button class="my-orders-refresh" type="button" aria-label="Refresh my orders"/);
-        assert.match(html, /<svg[^>]+aria-hidden="true"/);
-        assert.match(html, /<script src="\/my-orders.js"><\/script>/);
+        assert.doesNotMatch(html, /my orders/i);
+        assert.doesNotMatch(html, /my-orders(?:\.css|\.js|\.html)/i);
+        assert.doesNotMatch(html, /id="myOrders"/);
     }
 });
 
@@ -517,19 +517,18 @@ test("lookup storage failures are displayed without navigation", async () => {
     assert.deepEqual(ui.navigations, []);
 });
 
-test("partner pages have a My orders button next to API test linking to their own order screen", () => {
+test("partner landing pages retain their partner identity without an embedded orders link", () => {
     for (const [page, partnerId] of [["ctos-landing.html", "mbb-mae-ctos"],
         ["easybook-landing.html", "mbb-mae-easybook"], ["esim-landing.html", "mbb-mae-esim"]]) {
         const html = fs.readFileSync(path.join(root, page), "utf8");
-        assert.match(html, new RegExp(`<div class="header-actions">\\s*<a class="api-test" id="myOrdersLink" href="/my-orders.html\\?partnerId=${partnerId}" data-partner-id="${partnerId}">My orders</a>\\s*<a class="api-test" id="apiTestLink"`));
         assert.match(html, new RegExp(`"x-partner-id": "${partnerId}"`));
-        assert.match(html, /id="myOrders"/);
+        assert.doesNotMatch(html, /id="myOrdersLink"|id="myOrders"/);
     }
     const screen = fs.readFileSync(path.join(root, "my-orders.html"), "utf8");
     assert.match(screen, /<script src="\/my-orders.js"><\/script>/);
 });
 
-test("landing and dedicated screens request the same user's orders for every partner", async () => {
+test("dedicated orders screen requests the current user's orders for every partner", async () => {
     for (const partner of ["ctos", "easybook", "esim"]) {
         const search = "?partnerId=mbb-mae-" + partner + "&source=mae";
         const requests = [];
@@ -541,13 +540,9 @@ test("landing and dedicated screens request the same user's orders for every par
                 return response([order("MBB1"), order("MBB2", "SUCCESS")]);
             }
         };
-        const landing = loadOrders(options);
-        await landing.initialize();
-        assert.equal(landing.ordersLink.href, "/my-orders.html" + search);
         const screen = loadOrders({ ...options, screen: true });
         await screen.initialize();
         assert.deepEqual(requests, [
-            ["/api/my/orders", "token", "no-store"],
             ["/api/my/orders", "token", "no-store"]
         ]);
         assert.equal(screen.list.children[0].children.length, 2);
@@ -575,9 +570,11 @@ test("order cards include a reference, status, formatted amount, date and detail
     assert.equal(card.children[4].textContent, "View order details");
 });
 
-test("every orders view loads shared card styling without a dedicated-page scope", () => {
-    for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.html", "my-orders.html"]) {
-        assert.match(fs.readFileSync(path.join(root, page), "utf8"), /href="\/my-orders.css"/);
+test("dedicated orders screen loads shared card styling without adding it to landing pages", () => {
+    const screen = fs.readFileSync(path.join(root, "my-orders.html"), "utf8");
+    assert.match(screen, /href="\/my-orders.css"/);
+    for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.html"]) {
+        assert.doesNotMatch(fs.readFileSync(path.join(root, page), "utf8"), /href="\/my-orders\.css"/);
     }
     const css = fs.readFileSync(path.join(root, "my-orders.css"), "utf8");
     assert.match(css, /\.my-orders \.my-orders-list \{[^}]*display: grid;[^}]*list-style: none;/);

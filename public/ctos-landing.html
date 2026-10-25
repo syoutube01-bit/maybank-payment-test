@@ -219,11 +219,6 @@
             background: #b8b8b8;
             cursor: not-allowed;
         }
-        .payment-section .my-orders {
-            --orders-accent: #007f89;
-            --orders-button-ink: #fff;
-            margin-top: 24px;
-        }
         button:focus-visible, input:focus-visible, a:focus-visible {
             outline: 3px solid #17324d;
             outline-offset: 3px;
@@ -248,12 +243,10 @@
             .agreement { white-space: normal; }
         }
     </style>
-    <link rel="stylesheet" href="/my-orders.css">
 </head>
 <body>
     <main class="page">
         <div class="header-actions">
-            <a class="api-test" id="myOrdersLink" href="/my-orders.html?partnerId=mbb-mae-ctos" data-partner-id="mbb-mae-ctos">My orders</a>
             <a class="api-test" id="apiTestLink" href="/index.html" hidden>API test</a>
         </div>
         <header class="brand-row">
@@ -330,18 +323,6 @@
             <p id="paymentStatus" role="status" style="overflow-wrap: anywhere;"></p>
             <pre id="viewPartyHeading">View Party response</pre>
             <pre id="viewPartyResponse" aria-labelledby="viewPartyHeading" aria-live="polite" style="white-space: pre-wrap; overflow-wrap: anywhere;"></pre>
-            <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
-                <div class="my-orders-header">
-                    <h2 id="myOrdersHeading">My Orders</h2>
-                    <button class="my-orders-refresh" type="button" aria-label="Refresh my orders" title="Refresh my orders">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                            <path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9"/>
-                        </svg>
-                    </button>
-                </div>
-                <p class="my-orders-message" role="status" aria-live="polite"></p>
-                <ul class="my-orders-list"></ul>
-            </section>
         </section>
     </main>
     <script src="/payment-session.js"></script>
@@ -484,6 +465,5 @@
             }
         });
     </script>
-    <script src="/my-orders.js"></script>
 </body>
 </html>
