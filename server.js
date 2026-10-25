@@ -108,6 +108,7 @@ function getDigitalIdFromWebInitToken(webinitToken) {
     } catch {
         throw new Error("Web-init JWT payload is not valid JSON.");
     }
+    console.log("Rajan: Web-init JWT claims:", claims);
     if (typeof claims?.exp === "number" && claims.exp * 1000 <= Date.now()) {
         throw new Error("Web-init JWT has expired.");
     }
