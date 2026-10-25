@@ -44,6 +44,48 @@
     }
 
     let isLoading = false;
+    let isLookingUp = false;
+
+    async function lookupOrder(endpoint, parameter, promptMessage, defaultValue) {
+        const value = window.prompt(promptMessage, defaultValue);
+        if (!value || !value.trim() || isLookingUp) return;
+
+        const section = document.getElementById("myOrders");
+        const message = section.querySelector(".my-orders-message");
+        const lookupButtons = [
+            document.getElementById("lookupByOrderId"),
+            document.getElementById("lookupByInvoiceId")
+        ];
+        isLookingUp = true;
+        lookupButtons.forEach(button => { button.disabled = true; });
+        message.hidden = false;
+        message.textContent = "Looking up order...";
+        try {
+            const webInitToken = await window.paymentSession.getWebInitToken();
+            const tokenResponse = await fetch("/api/dp/token", { method: "POST" });
+            const tokenText = await tokenResponse.text();
+            if (!tokenResponse.ok) {
+                throw new Error("Get Token: HTTP " + tokenResponse.status + "\n" + tokenText);
+            }
+            const tokenData = JSON.parse(tokenText);
+            const accessToken = tokenData?.responseData?.access_token;
+            if (tokenData?.txnStatus?.code !== "AOK200" || typeof accessToken !== "string" || !accessToken.trim()) {
+                throw new Error("Get Token returned no valid access token: " + tokenText);
+            }
+
+            const query = parameter + "=" + encodeURIComponent(value.trim());
+            const res = await fetch(endpoint + "?" + query, {
+                method: "GET",
+                headers: { "x-webinit-token": webInitToken, "x-access-token": accessToken }
+            });
+            message.textContent = "HTTP " + res.status + "\n" + await res.text();
+        } catch (error) {
+            message.textContent = "Lookup failed: " + error.message;
+        } finally {
+            isLookingUp = false;
+            lookupButtons.forEach(button => { button.disabled = false; });
+        }
+    }
 
     async function loadMyOrders() {
         const section = document.getElementById("myOrders");
@@ -95,7 +137,17 @@
     function initializeMyOrders() {
         initializeMyOrdersLink();
         const refreshButton = document.querySelector("#myOrders .my-orders-refresh");
+        const lookupByOrderId = document.getElementById("lookupByOrderId");
+        const lookupByInvoiceId = document.getElementById("lookupByInvoiceId");
         if (refreshButton) refreshButton.addEventListener("click", loadMyOrders);
+        if (lookupByOrderId) {
+            lookupByOrderId.addEventListener("click", () =>
+                lookupOrder("/api/dp/order-status", "orderRefId", "Enter Order Reference Id", "MBB393"));
+        }
+        if (lookupByInvoiceId) {
+            lookupByInvoiceId.addEventListener("click", () =>
+                lookupOrder("/api/dp/order-by-invoice", "partnerInvoiceId", "Enter Partner Invoice Id", "INV20260914212"));
+        }
         return loadMyOrders();
     }
 

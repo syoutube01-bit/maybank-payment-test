@@ -132,6 +132,27 @@
 .my-orders .my-orders-refresh:hover:not(:disabled) { filter: brightness(0.94); transform: translateY(-1px); }
 .my-orders .my-orders-refresh:disabled { opacity: 0.58; cursor: wait; }
 .my-orders .my-orders-refresh:disabled svg { animation: refresh-spin 1s linear infinite; }
+.my-orders-lookups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: -8px 0 20px;
+}
+.my-orders .my-orders-lookup {
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid var(--orders-line, #e5e9ef);
+    border-radius: 8px;
+    color: var(--orders-ink, #17324d);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    background: var(--orders-accent, #ffc20e);
+    cursor: pointer;
+}
+.my-orders .my-orders-lookup:hover:not(:disabled) { filter: brightness(0.94); }
+.my-orders .my-orders-lookup:disabled { opacity: 0.58; cursor: wait; }
+.my-orders .my-orders-lookup:focus-visible { outline: 3px solid var(--orders-accent, #17324d); outline-offset: 3px; }
 .my-orders .my-orders-message {
     margin: 0;
     padding: 18px 20px;
@@ -141,6 +162,7 @@
     font-size: 14px;
     line-height: 1.5;
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
     background: var(--orders-card, #f8fafc);
 }
 

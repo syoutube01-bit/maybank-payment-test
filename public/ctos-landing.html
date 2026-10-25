@@ -327,6 +327,7 @@
 
             <button class="buy-button" id="buyButton" type="button" disabled>Buy</button>
             <p id="paymentStatus" role="status" style="overflow-wrap: anywhere;"></p>
+            <pre id="viewPartyResponse" aria-live="polite" style="white-space: pre-wrap; overflow-wrap: anywhere;"></pre>
             <section class="my-orders" id="myOrders" aria-labelledby="myOrdersHeading" hidden>
                 <div class="my-orders-header">
                     <h2 id="myOrdersHeading">My Orders</h2>
@@ -347,6 +348,7 @@
         const termsAgreement = document.getElementById("termsAgreement");
         const buyButton = document.getElementById("buyButton");
         const paymentStatus = document.getElementById("paymentStatus");
+        const viewPartyResponse = document.getElementById("viewPartyResponse");
         let isBuying = false;
 
         function updateBuyButton() {
@@ -384,6 +386,22 @@
                 throw new Error("Get Token returned no valid access token: " + text);
             }
             return token;
+        }
+
+        async function viewParty() {
+            viewPartyResponse.textContent = "Loading...";
+            try {
+                const accessToken = await getToken();
+                const webInitToken = await window.paymentSession.getWebInitToken();
+                const res = await fetch("/api/dp/view-party", {
+                    method: "GET",
+                    headers: { "x-webinit-token": webInitToken, "x-access-token": accessToken }
+                });
+                const text = await res.text();
+                viewPartyResponse.textContent = "HTTP " + res.status + "\n" + text;
+            } catch (error) {
+                viewPartyResponse.textContent = "Request failed: " + error.message;
+            }
         }
 
         function logUserId(webInitToken) {
@@ -442,6 +460,7 @@
 
         updateBuyButton();
         termsAgreement.addEventListener("change", updateBuyButton);
+        window.addEventListener("load", viewParty, { once: true });
         buyButton.addEventListener("click", async () => {
             if (isBuying || !termsAgreement.checked) return;
             isBuying = true;

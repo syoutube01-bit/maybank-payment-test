@@ -23,6 +23,8 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
     const message = element();
     const list = element();
     const button = element();
+    const lookupByOrderId = element();
+    const lookupByInvoiceId = element();
     const backLink = element();
     const partnerName = element();
     const ordersLink = element();
@@ -36,14 +38,15 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
     const document = {
         readyState: "loading",
         getElementById: id => ({
-            myOrders: section, backLink, partnerName, myOrdersLink: screen ? null : ordersLink
+            myOrders: section, backLink, partnerName, myOrdersLink: screen ? null : ordersLink,
+            lookupByOrderId, lookupByInvoiceId
         })[id] || null,
         querySelector: () => button,
         addEventListener(name, handler) { this[name] = handler; },
         createElement: element,
         createDocumentFragment: element
     };
-    const window = { nativeMessageService: bridge, location: { search } };
+    const window = { nativeMessageService: bridge, location: { search }, prompt: () => "" };
     const context = vm.createContext({ window, document, fetch, atob, Date: clock, URLSearchParams });
     for (const file of ["payment-session.js", "my-orders.js"]) {
         if (screen && file === "my-orders.js") {
@@ -52,7 +55,7 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
         }
         vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context);
     }
-    return { window, section, message, list, button, backLink, partnerName, ordersLink,
+    return { window, section, message, list, button, lookupByOrderId, lookupByInvoiceId, backLink, partnerName, ordersLink,
         initialize: () => document.DOMContentLoaded() };
 }
 
@@ -173,6 +176,47 @@ test("refresh shows loading, prevents overlapping requests and recovers after AP
     await ui.button.listeners.click();
     assert.equal(requests, 3);
     assert.equal(ui.message.hidden, true);
+});
+
+test("Order ID and Invoice ID buttons call their matching lookup APIs", async () => {
+    const requests = [];
+    const prompts = [];
+    const ui = loadOrders({
+        bridge: { async callAPI() { return { webInitToken: "init-token" }; } },
+        async fetch(url, options) {
+            requests.push({ url, options });
+            if (url === "/api/my/orders") return response([]);
+            if (url === "/api/dp/token") {
+                return { ok: true, status: 200, async text() {
+                    return JSON.stringify({ txnStatus: { code: "AOK200" }, responseData: { access_token: "access-token" } });
+                } };
+            }
+            return { ok: true, status: 200, async text() { return JSON.stringify({ status: "SUCCESS" }); } };
+        }
+    });
+    ui.window.prompt = (message, defaultValue) => {
+        prompts.push([message, defaultValue]);
+        return message === "Enter Order Reference Id" ? "REF 1" : "INV 2";
+    };
+    await ui.initialize();
+
+    await ui.lookupByOrderId.listeners.click();
+    await ui.lookupByInvoiceId.listeners.click();
+
+    assert.deepEqual(prompts, [
+        ["Enter Order Reference Id", "MBB393"],
+        ["Enter Partner Invoice Id", "INV20260914212"]
+    ]);
+    assert.deepEqual(requests.map(({ url }) => url), [
+        "/api/my/orders", "/api/dp/token", "/api/dp/order-status?orderRefId=REF%201",
+        "/api/dp/token", "/api/dp/order-by-invoice?partnerInvoiceId=INV%202"
+    ]);
+    for (const { options } of requests.slice(2).filter((_, index) => index % 2 === 0)) {
+        assert.equal(options.method, "GET");
+        assert.equal(options.headers["x-webinit-token"], "init-token");
+        assert.equal(options.headers["x-access-token"], "access-token");
+    }
+    assert.equal(ui.message.textContent, 'HTTP 200\n{"status":"SUCCESS"}');
 });
 
 test("partner pages have a My orders button next to API test linking to their own order screen", () => {

@@ -8,7 +8,7 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     const elements = new Map();
     const logs = [];
     const errors = [];
-    for (const id of ["apiTestLink", "termsAgreement", "buyButton", "paymentStatus"]) {
+    for (const id of ["apiTestLink", "termsAgreement", "buyButton", "paymentStatus", "viewPartyResponse"]) {
         elements.set(id, {
             href: "/index.html",
             checked: true,
@@ -19,7 +19,9 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     }
     const window = {
         location: { search: "?partnerId=mbb-mae-ctos", href: "" },
-        nativeMessageService: bridge ?? { async callAPI() { return { webInitToken: "init-token" }; } }
+        nativeMessageService: bridge ?? { async callAPI() { return { webInitToken: "init-token" }; } },
+        listeners: {},
+        addEventListener(event, handler, options) { this.listeners[event] = { handler, options }; }
     };
     const html = fs.readFileSync(path.join(__dirname, "../public/ctos-landing.html"), "utf8");
     const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
@@ -42,7 +44,12 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
         window,
         logs,
         errors,
-        click: () => elements.get("buyButton").listeners.click()
+        click: () => elements.get("buyButton").listeners.click(),
+        async load() {
+            const listener = window.listeners.load;
+            if (listener.options.once) delete window.listeners.load;
+            await listener.handler();
+        }
     };
 }
 
@@ -55,6 +62,24 @@ const validOrder = {
     statusCode: "0000",
     redirection: { ios: "https://payment/ios", android: "https://payment/android" }
 };
+
+test("CTOS landing page requests view party once on load", async () => {
+    const requests = [];
+    const checkout = loadCheckout({
+        async fetch(url, options) {
+            requests.push({ url, options });
+            return response(url === "/api/dp/token" ? validToken : { party: "ctos" });
+        }
+    });
+
+    await checkout.load();
+
+    assert.deepEqual(requests.map(({ url }) => url), ["/api/dp/token", "/api/dp/view-party"]);
+    assert.equal(requests[1].options.method, "GET");
+    assert.equal(requests[1].options.headers["x-access-token"], "access-token");
+    assert.equal(requests[1].options.headers["x-webinit-token"], "init-token");
+    assert.equal(checkout.elements.get("viewPartyResponse").textContent, 'HTTP 200\n{"party":"ctos"}');
+});
 
 function webInitJwt(claims) {
     return "eyJhbGciOiJSUzI1NiJ9." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".signature";
