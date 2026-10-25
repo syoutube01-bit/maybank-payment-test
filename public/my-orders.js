@@ -78,7 +78,24 @@
                 method: "GET",
                 headers: { "x-webinit-token": webInitToken, "x-access-token": accessToken }
             });
-            message.textContent = "HTTP " + res.status + "\n" + await res.text();
+            const responseText = await res.text();
+            if (!res.ok) {
+                throw new Error("HTTP " + res.status + "\n" + responseText);
+            }
+            const result = JSON.parse(responseText);
+            const order = result?.responseData ?? result?.data ?? result;
+            if (result?.success === false ||
+                (result?.statusCode != null && result.statusCode !== "0000") ||
+                (result?.txnStatus?.code != null && result.txnStatus.code !== "AOK200")) {
+                throw new Error(result.message || result.txnStatus?.message || responseText);
+            }
+            if (!order || typeof order !== "object" || Array.isArray(order) ||
+                typeof (order.orderRefId ?? order.orderId) !== "string" ||
+                !(order.orderRefId ?? order.orderId).trim()) {
+                throw new Error("Lookup returned no valid order details.");
+            }
+            window.sessionStorage.setItem("lookupPaymentStatus", JSON.stringify(order));
+            window.location.assign("/lookup-payment-status.html");
         } catch (error) {
             message.textContent = "Lookup failed: " + error.message;
         } finally {

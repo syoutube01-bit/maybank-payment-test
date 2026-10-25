@@ -38,6 +38,16 @@ it does not filter the list. Open these screens inside MAE to use the native
 bridge. Loading failures are displayed in the order section, with a refresh
 button to retry.
 
+On My Orders, **Order ID** and **Invoice ID** request the corresponding DP lookup
+API and open [Payment Status](public/lookup-payment-status.html) with the returned
+order details. This display-only screen shares the existing payment receipt
+layout but does not fetch local orders or initiate/update a payment. Lookup
+results are kept in the current tab's session storage (not in the URL), so the
+screen can be refreshed. Missing response fields are shown as "Not provided";
+failed or invalid lookups stay on My Orders with an error. Opening the screen
+without a saved lookup shows an error. Existing order cards and payment deep
+links continue to use the original payment status flow.
+
 ## Render PostgreSQL
 
 Create a PostgreSQL database in Render and add its **Internal Database URL** to the

@@ -46,7 +46,14 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
         createElement: element,
         createDocumentFragment: element
     };
-    const window = { nativeMessageService: bridge, location: { search }, prompt: () => "" };
+    const stored = new Map();
+    const navigations = [];
+    const window = {
+        nativeMessageService: bridge,
+        location: { search, assign(url) { navigations.push(url); } },
+        sessionStorage: { setItem(key, value) { stored.set(key, value); } },
+        prompt: () => ""
+    };
     const context = vm.createContext({ window, document, fetch, atob, Date: clock, URLSearchParams });
     for (const file of ["payment-session.js", "my-orders.js"]) {
         if (screen && file === "my-orders.js") {
@@ -56,6 +63,7 @@ function loadOrders({ bridge, fetch, Date: clock = Date, search = "", screen = f
         vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context);
     }
     return { window, section, message, list, button, lookupByOrderId, lookupByInvoiceId, backLink, partnerName, ordersLink,
+        stored, navigations,
         initialize: () => document.DOMContentLoaded() };
 }
 
@@ -178,7 +186,7 @@ test("refresh shows loading, prevents overlapping requests and recovers after AP
     assert.equal(ui.message.hidden, true);
 });
 
-test("Order ID and Invoice ID buttons call their matching lookup APIs", async () => {
+test("Order ID and Invoice ID buttons call their matching lookup APIs and navigate with response values", async () => {
     const requests = [];
     const prompts = [];
     const ui = loadOrders({
@@ -191,7 +199,8 @@ test("Order ID and Invoice ID buttons call their matching lookup APIs", async ()
                     return JSON.stringify({ txnStatus: { code: "AOK200" }, responseData: { access_token: "access-token" } });
                 } };
             }
-            return { ok: true, status: 200, async text() { return JSON.stringify({ status: "SUCCESS" }); } };
+            const data = order(url.includes("order-by-invoice") ? "MBB2" : "MBB1", "SUCCESS");
+            return { ok: true, status: 200, async text() { return JSON.stringify(data); } };
         }
     });
     ui.window.prompt = (message, defaultValue) => {
@@ -201,6 +210,7 @@ test("Order ID and Invoice ID buttons call their matching lookup APIs", async ()
     await ui.initialize();
 
     await ui.lookupByOrderId.listeners.click();
+    assert.deepEqual(JSON.parse(ui.stored.get("lookupPaymentStatus")), order("MBB1", "SUCCESS"));
     await ui.lookupByInvoiceId.listeners.click();
 
     assert.deepEqual(prompts, [
@@ -216,7 +226,92 @@ test("Order ID and Invoice ID buttons call their matching lookup APIs", async ()
         assert.equal(options.headers["x-webinit-token"], "init-token");
         assert.equal(options.headers["x-access-token"], "access-token");
     }
-    assert.equal(ui.message.textContent, 'HTTP 200\n{"status":"SUCCESS"}');
+    assert.deepEqual(JSON.parse(ui.stored.get("lookupPaymentStatus")), order("MBB2", "SUCCESS"));
+    assert.deepEqual(ui.navigations, ["/lookup-payment-status.html", "/lookup-payment-status.html"]);
+    assert.equal(ui.lookupByOrderId.disabled, false);
+    assert.equal(ui.lookupByInvoiceId.disabled, false);
+});
+
+test("lookups accept wrapped responses and existing DP field aliases", async () => {
+    const data = {
+        orderId: "MBB3", PartnerInvoice: "INV3", ParnerRefNumber: "REF3",
+        PaymentStatus: "PENDING", currency: "MYR", amount: "100"
+    };
+    for (const payload of [
+        { txnStatus: { code: "AOK200" }, responseData: data },
+        { success: true, data },
+        { statusCode: "0000", ...data }
+    ]) {
+        const ui = loadOrders({
+            bridge: { async callAPI() { return { webInitToken: "token" }; } },
+            async fetch(url) {
+                if (url === "/api/my/orders") return response([]);
+                return { ok: true, status: 200, async text() {
+                    return JSON.stringify(url === "/api/dp/token"
+                        ? { txnStatus: { code: "AOK200" }, responseData: { access_token: "access" } }
+                        : payload);
+                } };
+            }
+        });
+        await ui.initialize();
+        ui.window.prompt = () => "INV3";
+        await ui.lookupByInvoiceId.listeners.click();
+        assert.equal(JSON.parse(ui.stored.get("lookupPaymentStatus")).orderId, "MBB3");
+        assert.deepEqual(ui.navigations, ["/lookup-payment-status.html"]);
+    }
+});
+
+test("failed, malformed and missing-order lookups stay on My Orders and show errors", async () => {
+    for (const [status, text, expected] of [
+        [404, "Order not found", /HTTP 404.*\nOrder not found/],
+        [200, "not JSON", /Lookup failed:/],
+        [200, JSON.stringify({ success: false, message: "Rejected" }), /Rejected/],
+        [200, JSON.stringify({ statusCode: "9999", message: "Not found" }), /Not found/],
+        [200, JSON.stringify({ txnStatus: { code: "ERROR", message: "Denied" } }), /Denied/],
+        ...[null, [], {}, { orderRefId: " " }, { orderRefId: 123 }].map(data =>
+            [200, JSON.stringify(data), /no valid order details/])
+    ]) {
+        const ui = loadOrders({
+            bridge: { async callAPI() { return { webInitToken: "token" }; } },
+            async fetch(url) {
+                if (url === "/api/my/orders") return response([]);
+                return { ok: status === 200 || url === "/api/dp/token", status, async text() {
+                    return url === "/api/dp/token"
+                        ? JSON.stringify({ txnStatus: { code: "AOK200" }, responseData: { access_token: "access" } })
+                        : text;
+                } };
+            }
+        });
+        await ui.initialize();
+        ui.window.prompt = () => "MBB1";
+        await ui.lookupByOrderId.listeners.click();
+        assert.match(ui.message.textContent, expected);
+        assert.equal(ui.message.hidden, false);
+        assert.equal(ui.stored.size, 0);
+        assert.deepEqual(ui.navigations, []);
+        assert.equal(ui.lookupByOrderId.disabled, false);
+        assert.equal(ui.lookupByInvoiceId.disabled, false);
+    }
+});
+
+test("lookup storage failures are displayed without navigation", async () => {
+    const ui = loadOrders({
+        bridge: { async callAPI() { return { webInitToken: "token" }; } },
+        async fetch(url) {
+            if (url === "/api/my/orders") return response([]);
+            return { ok: true, status: 200, async text() {
+                return JSON.stringify(url === "/api/dp/token"
+                    ? { txnStatus: { code: "AOK200" }, responseData: { access_token: "access" } }
+                    : order("MBB1"));
+            } };
+        }
+    });
+    await ui.initialize();
+    ui.window.prompt = () => "MBB1";
+    ui.window.sessionStorage.setItem = () => { throw new Error("Storage unavailable"); };
+    await ui.lookupByOrderId.listeners.click();
+    assert.match(ui.message.textContent, /Lookup failed: Storage unavailable/);
+    assert.deepEqual(ui.navigations, []);
 });
 
 test("partner pages have a My orders button next to API test linking to their own order screen", () => {

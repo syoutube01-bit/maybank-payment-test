@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f4f6f8">
+    <title>Payment Status</title>
+    <link rel="stylesheet" href="/payment-status.css">
+    <script src="/lookup-payment-status.js" defer></script>
+</head>
+<body>
+<main class="status-shell">
+    <div class="brand-row">
+        <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 9h16M6 9v8m4-8v8m4-8v8m4-8v8M4 20h16M3 9l9-6 9 6" /></svg>
+        </span>
+        <span>Payment</span>
+    </div>
+    <section class="status-box" aria-labelledby="statusText">
+        <p class="status-kicker">PAYMENT RECEIPT</p>
+        <h1 class="status-text" id="statusText">Payment Status</h1>
+        <p class="message" id="message" role="status" aria-live="polite">Loading lookup details...</p>
+        <h2 class="details-heading" id="detailsHeading" hidden>Order details</h2>
+        <dl class="order-details" id="orderDetails" aria-labelledby="detailsHeading" hidden>
+            <div class="detail-row"><dt>Order Reference Id</dt><dd id="orderRefId"></dd></div>
+            <div class="detail-row"><dt>Partner Reference Id</dt><dd id="partnerReferenceId"></dd></div>
+            <div class="detail-row"><dt>Partner Invoice Id</dt><dd id="partnerInvoiceId"></dd></div>
+            <div class="detail-row"><dt>Amount</dt><dd id="amount"></dd></div>
+            <div class="detail-row"><dt>Date</dt><dd><time id="createdAt"></time></dd></div>
+            <div class="detail-row"><dt>Payment Status</dt><dd id="paymentStatus"></dd></div>
+        </dl>
+    </section>
+</main>
+</body>
+</html>
