@@ -132,11 +132,11 @@
             margin: 49px 0 23px;
         }
         .payment-summary {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin: 23px 0 42px 8px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: start;
+            gap: 16px;
+            margin: 23px 0 42px;
         }
         .report-name {
             margin: 0 0 1px;
@@ -149,7 +149,9 @@
             line-height: 1.25;
         }
         .amount {
-            flex: 0 0 auto;
+            display: grid;
+            justify-items: end;
+            gap: 8px;
             text-align: right;
         }
         .price {
@@ -157,12 +159,22 @@
             font-family: Arial, sans-serif;
             font-size: 28px;
             font-weight: 700;
+            line-height: 1.2;
             white-space: nowrap;
         }
         .tax {
-            margin-top: 8px;
             font-size: 12px;
         }
+        .amount-input {
+            width: 120px;
+            min-height: 40px;
+            padding: 0 8px;
+            border: 1px solid #c6cfd6;
+            border-radius: 6px;
+            font: inherit;
+            text-align: right;
+        }
+        .amount-button { min-width: 64px; }
         .promo-label {
             display: block;
             margin-bottom: 12px;
@@ -285,7 +297,7 @@
         <section aria-labelledby="email-heading">
             <h2 id="email-heading">Your Maybank registered email</h2>
             <div class="email-row">
-                <span>A**yuki@yopmail.com</span>
+                <span>Saravan***jan@yopmail.com</span>
                 <button class="outline-button" type="button">Update</button>
             </div>
             <p class="privacy">CTOS is committed to protecting your privacy in accordance with the Personal Data Protection Act 2010 of Malaysia (PDPA).</p>
@@ -303,8 +315,10 @@
                     </ul>
                 </div>
                 <div class="amount">
-                    <div class="price">RM100</div>
+                    <div class="price" id="amountDisplay">RM100</div>
+                    <input class="amount-input" id="amountInput" type="number" min="0.01" step="0.01" value="100" required aria-label="Amount in MYR" hidden>
                     <div class="tax">Incl. of Service Tax</div>
+                    <button class="outline-button amount-button" id="amountButton" type="button" aria-controls="amountInput" aria-expanded="false">Edit</button>
                 </div>
             </div>
 
@@ -336,11 +350,47 @@
         const buyButton = document.getElementById("buyButton");
         const paymentStatus = document.getElementById("paymentStatus");
         const viewPartyResponse = document.getElementById("viewPartyResponse");
+        const amountDisplay = document.getElementById("amountDisplay");
+        const amountInput = document.getElementById("amountInput");
+        const amountButton = document.getElementById("amountButton");
+        let paymentAmount = 100;
+        let isEditingAmount = false;
         let isBuying = false;
 
         function updateBuyButton() {
-            buyButton.disabled = isBuying || !termsAgreement.checked;
+            buyButton.disabled = isBuying || isEditingAmount || !termsAgreement.checked;
+            amountButton.disabled = isBuying;
         }
+
+        amountButton.addEventListener("click", () => {
+            if (isBuying) return;
+            if (!isEditingAmount) {
+                isEditingAmount = true;
+                amountInput.value = String(paymentAmount);
+                amountInput.hidden = false;
+                amountDisplay.hidden = true;
+                amountButton.textContent = "Save";
+                amountButton.setAttribute("aria-expanded", "true");
+                updateBuyButton();
+                amountInput.focus();
+                return;
+            }
+            const amount = Number(amountInput.value);
+            amountInput.setCustomValidity("");
+            if (!Number.isFinite(amount) || amount <= 0) {
+                amountInput.setCustomValidity("Enter an amount greater than zero.");
+            }
+            if (!amountInput.reportValidity()) return;
+            paymentAmount = amount;
+            amountDisplay.textContent = "RM" + paymentAmount;
+            isEditingAmount = false;
+            amountInput.hidden = true;
+            amountDisplay.hidden = false;
+            amountButton.textContent = "Edit";
+            amountButton.setAttribute("aria-expanded", "false");
+            updateBuyButton();
+        });
+        amountInput.addEventListener("input", () => amountInput.setCustomValidity(""));
 
         function buildPartnerInvoiceId() {
             let digits = "";
@@ -404,7 +454,7 @@
                 body: JSON.stringify({
                     partnerReferenceId: "REF20260522",
                     currency: "MYR",
-                    amount: 100,
+                    amount: paymentAmount,
                     remark: "CTOS Score Report",
                     partnerInvoiceId: buildPartnerInvoiceId()
                 })
@@ -429,7 +479,7 @@
         termsAgreement.addEventListener("change", updateBuyButton);
         window.addEventListener("load", viewParty, { once: true });
         buyButton.addEventListener("click", async () => {
-            if (isBuying || !termsAgreement.checked) return;
+            if (isBuying || isEditingAmount || !termsAgreement.checked) return;
             isBuying = true;
             updateBuyButton();
             paymentStatus.textContent = "Getting payment token...";

@@ -29,6 +29,11 @@ HTTP port, set `PORT` in `.env` or the environment.
 
 ## My Orders
 
+On the CTOS landing page, use **Edit** beside the amount to enter a positive MYR
+amount with up to two decimal places, then **Save**. The displayed amount and
+create-order request use the saved value for the current page session. Buy is
+disabled until the edit is saved; reloading resets the amount to RM100.
+
 On the CTOS landing page, the API test link is hidden. Double-click the CTOS
 brand (the CTOS Score text) to open `/index.html`, retaining the current launch
 query parameters.

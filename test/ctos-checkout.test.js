@@ -8,12 +8,21 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     const elements = new Map();
     const logs = [];
     const errors = [];
-    for (const id of ["apiTestLink", "ctosBrand", "termsAgreement", "buyButton", "paymentStatus", "viewPartyResponse"]) {
+    for (const id of ["apiTestLink", "ctosBrand", "termsAgreement", "buyButton", "paymentStatus", "viewPartyResponse", "amountDisplay", "amountInput", "amountButton"]) {
         elements.set(id, {
             href: "/index.html",
             checked: true,
             textContent: "",
             listeners: {},
+            setAttribute(name, value) { this[name] = value; },
+            focus() { this.focused = true; },
+            setCustomValidity(message) { this.validationMessage = message; },
+            reportValidity() {
+                const value = Number(this.value);
+                this.validityReported = true;
+                return !this.validationMessage && this.value !== "" && Number.isFinite(value)
+                    && value >= 0.01 && Math.abs(value * 100 - Math.round(value * 100)) < 1e-8;
+            },
             addEventListener(event, handler) { this.listeners[event] = handler; }
         });
     }
@@ -62,6 +71,63 @@ const validOrder = {
     statusCode: "0000",
     redirection: { ios: "https://payment/ios", android: "https://payment/android" }
 };
+
+test("CTOS edits and saves the displayed amount used by checkout", async () => {
+    const requests = [];
+    const checkout = loadCheckout({
+        async fetch(url, options) {
+            requests.push({ url, options });
+            return response(url === "/api/dp/token" ? validToken : validOrder);
+        }
+    });
+    const button = checkout.elements.get("amountButton");
+    const input = checkout.elements.get("amountInput");
+    const display = checkout.elements.get("amountDisplay");
+    button.listeners.click();
+    assert.equal(button.textContent, "Save");
+    assert.equal(input.hidden, false);
+    assert.equal(input.value, "100");
+    assert.equal(input.focused, true);
+    assert.equal(display.hidden, true);
+    assert.equal(checkout.elements.get("buyButton").disabled, true);
+    await checkout.click();
+    assert.equal(requests.length, 0);
+    input.value = "125.75";
+    button.listeners.click();
+    assert.equal(display.textContent, "RM125.75");
+    assert.equal(display.hidden, false);
+    assert.equal(input.hidden, true);
+    assert.equal(button.textContent, "Edit");
+    assert.equal(button["aria-expanded"], "false");
+    assert.equal(checkout.elements.get("buyButton").disabled, false);
+    button.listeners.click();
+    assert.equal(input.value, "125.75");
+    input.value = "0.01";
+    button.listeners.click();
+    await checkout.click();
+    assert.equal(JSON.parse(requests[1].options.body).amount, 0.01);
+    assert.equal(display.textContent, "RM0.01");
+});
+
+for (const value of ["", "0", "-1", "abc", "Infinity", "1.001"]) {
+    test(`CTOS rejects invalid payment amount (${value})`, () => {
+        const checkout = loadCheckout();
+        const button = checkout.elements.get("amountButton");
+        const input = checkout.elements.get("amountInput");
+        button.listeners.click();
+        input.value = value;
+        button.listeners.click();
+        assert.equal(input.validityReported, true);
+        assert.equal(button.textContent, "Save");
+        assert.equal(input.hidden, false);
+        assert.equal(checkout.elements.get("buyButton").disabled, true);
+        input.value = "150";
+        input.listeners.input();
+        button.listeners.click();
+        assert.equal(checkout.elements.get("amountDisplay").textContent, "RM150");
+        assert.equal(checkout.elements.get("buyButton").disabled, false);
+    });
+}
 
 test("CTOS hides API test and opens it only on a brand double-click, preserving launch parameters", () => {
     const checkout = loadCheckout();
