@@ -442,7 +442,13 @@
                 if (typeof registeredName !== "string" || !registeredName.trim()) {
                     throw new Error("View Party returned no registered party name.");
                 }
-                viewPartyResponse.textContent = "The register party name is " + registeredName.trim();
+                const viewPartyLabel = document.createElement("strong");
+                viewPartyLabel.textContent = "View Party";
+                const partyName = document.createElement("strong");
+                partyName.textContent = registeredName.trim();
+                viewPartyResponse.replaceChildren(
+                    "The registered party name in the ", viewPartyLabel, " response is ", partyName
+                );
             } catch (error) {
                 viewPartyResponse.textContent = "Request failed: " + error.message;
             }

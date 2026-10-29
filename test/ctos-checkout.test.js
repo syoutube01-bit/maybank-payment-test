@@ -13,6 +13,10 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
             href: "/index.html",
             checked: true,
             textContent: "",
+            replaceChildren(...children) {
+                this.children = children;
+                this.textContent = children.map(child => typeof child === "string" ? child : child.textContent).join("");
+            },
             listeners: {},
             setAttribute(name, value) { this[name] = value; },
             focus() { this.focused = true; },
@@ -35,7 +39,10 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
     const html = fs.readFileSync(path.join(__dirname, "../public/ctos-landing.html"), "utf8");
     const script = html.match(/<script>([\s\S]*?)<\/script>/)[1];
     const context = vm.createContext({
-        document: { getElementById(id) { return elements.get(id); } },
+        document: {
+            getElementById(id) { return elements.get(id); },
+            createElement(tagName) { return { tagName, textContent: "" }; }
+        },
         navigator: { platform },
         window,
         fetch,
@@ -160,7 +167,12 @@ test("CTOS landing page requests view party once on load", async () => {
     assert.equal(requests[1].options.method, "GET");
     assert.equal(requests[1].options.headers["x-access-token"], "access-token");
     assert.equal(requests[1].options.headers["x-webinit-token"], "init-token");
-    assert.equal(checkout.elements.get("viewPartyResponse").textContent, "The register party name is TEST CUSTOMER");
+    const partyResponse = checkout.elements.get("viewPartyResponse");
+    assert.equal(partyResponse.textContent, "The registered party name in the View Party response is TEST CUSTOMER");
+    assert.deepEqual(partyResponse.children.filter(child => typeof child !== "string"), [
+        { tagName: "strong", textContent: "View Party" },
+        { tagName: "strong", textContent: "TEST CUSTOMER" }
+    ]);
 });
 
 for (const [name, partyResponse, expected] of [
