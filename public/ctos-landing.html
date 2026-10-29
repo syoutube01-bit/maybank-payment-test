@@ -336,8 +336,7 @@
 
             <button class="buy-button" id="buyButton" type="button" disabled>Buy</button>
             <p id="paymentStatus" role="status" style="overflow-wrap: anywhere;"></p>
-            <pre id="viewPartyHeading">View Party response</pre>
-            <pre id="viewPartyResponse" aria-labelledby="viewPartyHeading" aria-live="polite" style="white-space: pre-wrap; overflow-wrap: anywhere;"></pre>
+            <p id="viewPartyResponse" role="status" style="overflow-wrap: anywhere;"></p>
         </section>
     </main>
     <script src="/payment-session.js"></script>
@@ -435,7 +434,15 @@
                     headers: { "x-webinit-token": webInitToken, "x-access-token": accessToken }
                 });
                 const text = await res.text();
-                viewPartyResponse.textContent = "HTTP " + res.status + "\n" + text;
+                if (!res.ok) {
+                    throw new Error("View Party: HTTP " + res.status);
+                }
+                const data = JSON.parse(text);
+                const registeredName = data?.Data?.demographics?.partyName?.registeredName;
+                if (typeof registeredName !== "string" || !registeredName.trim()) {
+                    throw new Error("View Party returned no registered party name.");
+                }
+                viewPartyResponse.textContent = "The register party name is " + registeredName.trim();
             } catch (error) {
                 viewPartyResponse.textContent = "Request failed: " + error.message;
             }

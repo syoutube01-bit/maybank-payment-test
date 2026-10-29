@@ -699,20 +699,19 @@ async function dpRequest(label, method, url, webinitToken, {
         transformResponse: (d) => d
     });
     console.log(`[${label}] Response Status:`, response.status);
-    console.log(`[${label}] Response Body:`, response.data);
     if (!customHeaders && (response.status < 400 ||
         (typeof response.data === "string" && response.data.trim().split(".").length === 5))) {
         try {
             response.data = await decryptDpBody(response.data);
-            if (label === "DP create order") {
-                console.log(`[${label}] Decrypted Response Body:`, response.data);
-            }
+            console.log(`[${label}] Decrypted Response Body:`, response.data);
         } catch (error) {
             console.error(`[${label}] Response protection error:`, error.message);
             const protectionError = new Error("Unable to decrypt or verify Maybank response.");
             protectionError.statusCode = 502;
             throw protectionError;
         }
+    } else {
+        console.log(`[${label}] Response Body:`, response.data);
     }
     return response;
 }

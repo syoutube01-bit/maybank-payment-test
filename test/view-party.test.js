@@ -12,6 +12,7 @@ function loadViewPartyRoute(upstream = { status: 200, data: "encrypted-response"
     const requests = [];
     const signatures = [];
     const decryptedBodies = [];
+    const logs = [];
     const app = {
         use() {},
         get(route, ...handlers) { routes.set(route, handlers); },
@@ -35,7 +36,7 @@ function loadViewPartyRoute(upstream = { status: 200, data: "encrypted-response"
         },
         __dirname: root,
         process: { ...process, env: { ...process.env, DATABASE_URL: "" } },
-        console: { log() {}, error() {} },
+        console: { log: (...args) => logs.push(args), error() {} },
         signatures,
         decryptedBodies
     });
@@ -57,7 +58,7 @@ function loadViewPartyRoute(upstream = { status: 200, data: "encrypted-response"
         set(name, value) { this.headers[name] = value; return this; },
         send(body) { this.body = body; return this; }
     };
-    return { handler: handlers.at(-1), requireAccessToken: handlers[1], requests, signatures, decryptedBodies, response };
+    return { handler: handlers.at(-1), requireAccessToken: handlers[1], requests, signatures, decryptedBodies, response, logs };
 }
 
 const request = {
@@ -68,7 +69,7 @@ const request = {
 };
 
 test("view party matches the working curl method, URL, body and headers", async () => {
-    const { handler, requests, signatures, decryptedBodies, response } = loadViewPartyRoute();
+    const { handler, requests, signatures, decryptedBodies, response, logs } = loadViewPartyRoute();
     await handler(request, response);
 
     assert.equal(requests.length, 1);
@@ -99,6 +100,9 @@ test("view party matches the working curl method, URL, body and headers", async 
     assert.deepEqual(decryptedBodies, ["encrypted-response"]);
     assert.equal(response.statusCode, 200);
     assert.equal(response.body, '{"party":"test-party"}');
+    assert.ok(logs.some(([label, body]) =>
+        label === "[DP view party] Decrypted Response Body:" && body === response.body));
+    assert.ok(!logs.some(args => args.includes("encrypted-response")));
 });
 
 test("view party preserves upstream errors and response metadata", async () => {

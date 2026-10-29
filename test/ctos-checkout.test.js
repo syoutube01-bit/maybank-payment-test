@@ -148,7 +148,9 @@ test("CTOS landing page requests view party once on load", async () => {
     const checkout = loadCheckout({
         async fetch(url, options) {
             requests.push({ url, options });
-            return response(url === "/api/dp/token" ? validToken : { party: "ctos" });
+            return response(url === "/api/dp/token" ? validToken : {
+                Data: { demographics: { partyName: { registeredName: "TEST CUSTOMER" } } }
+            });
         }
     });
 
@@ -158,8 +160,30 @@ test("CTOS landing page requests view party once on load", async () => {
     assert.equal(requests[1].options.method, "GET");
     assert.equal(requests[1].options.headers["x-access-token"], "access-token");
     assert.equal(requests[1].options.headers["x-webinit-token"], "init-token");
-    assert.equal(checkout.elements.get("viewPartyResponse").textContent, 'HTTP 200\n{"party":"ctos"}');
+    assert.equal(checkout.elements.get("viewPartyResponse").textContent, "The register party name is TEST CUSTOMER");
 });
+
+for (const [name, partyResponse, expected] of [
+    ["HTTP error", () => response({ privateDetail: "not displayed" }, 400), /View Party: HTTP 400/],
+    ["invalid JSON", () => ({ ok: true, text: async () => "not JSON" }), /Request failed:/],
+    ["missing name", () => response({ Data: {} }), /no registered party name/],
+    ["null response", () => response(null), /no registered party name/],
+    ["blank name", () => response({
+        Data: { demographics: { partyName: { registeredName: " " } } }
+    }), /no registered party name/]
+]) {
+    test(`CTOS view party displays an error for ${name}`, async () => {
+        const checkout = loadCheckout({
+            async fetch(url) {
+                return url === "/api/dp/token" ? response(validToken) : partyResponse();
+            }
+        });
+        await checkout.load();
+        const text = checkout.elements.get("viewPartyResponse").textContent;
+        assert.match(text, expected);
+        assert.doesNotMatch(text, /not displayed|The register party name is/);
+    });
+}
 
 function webInitJwt(claims) {
     return "eyJhbGciOiJSUzI1NiJ9." + Buffer.from(JSON.stringify(claims)).toString("base64url") + ".signature";

@@ -36,6 +36,10 @@ matching the working Postman request. It signs that same query-free upstream URL
 using the current access token and timestamp; the MAE web-init token is sent in
 `dip-authorization`. Credentials and signatures must be generated for each session,
 not copied from a previous curl.
+Protected DP responses are logged after decryption and verification, not as
+encrypted response bodies. CTOS displays only "The register party name is"
+followed by `Data.demographics.partyName.registeredName` from View Party.
+Failed requests and missing names display an error instead of the full response.
 
 On the CTOS landing page, use **Edit** beside the amount to enter a positive MYR
 amount with up to two decimal places, then **Save**. The displayed amount and
