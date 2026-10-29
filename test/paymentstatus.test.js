@@ -67,10 +67,13 @@ test("payment page supports existing oid links and does not double-prefix MBB", 
     }
 });
 
-test("payment page colors successful and rejected or cancelled statuses while preserving pending", async () => {
+test("payment page colors successful and failed, rejected or cancelled statuses while preserving pending", async () => {
     for (const [status, expectedClass] of [
         ["PENDING", undefined],
         ["SUCCESS", "status-success"],
+        ["FAIL", "status-error"],
+        ["FAILED", "status-error"],
+        [" failed ", "status-error"],
         ["REJECT", "status-error"],
         ["CANCEL", "status-error"]
     ]) {

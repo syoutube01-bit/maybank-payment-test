@@ -22,7 +22,7 @@
         const normalizedStatus = String(fields.paymentStatus || "").trim().toUpperCase();
         if (normalizedStatus === "SUCCESS") {
             paymentStatus.classList.add("status-success");
-        } else if (["REJECT", "REJECTED", "CANCEL", "CANCELLED", "CANCELED"].includes(normalizedStatus)) {
+        } else if (["FAIL", "FAILED", "REJECT", "REJECTED", "CANCEL", "CANCELLED", "CANCELED"].includes(normalizedStatus)) {
             paymentStatus.classList.add("status-error");
         }
         const amount = order.amount;

@@ -61,10 +61,13 @@ test("lookup receipt maps DP aliases, renders text safely and preserves zero amo
     assert.equal(elements.get("amount").textContent, "MYR 0");
 });
 
-test("lookup receipt colors successful and rejected or cancelled statuses while preserving pending", () => {
+test("lookup receipt colors successful and failed, rejected or cancelled statuses while preserving pending", () => {
     for (const [status, expectedClass] of [
         ["PENDING", undefined],
         ["SUCCESS", "status-success"],
+        ["FAIL", "status-error"],
+        ["FAILED", "status-error"],
+        [" failed ", "status-error"],
         ["REJECT", "status-error"],
         ["CANCEL", "status-error"]
     ]) {
