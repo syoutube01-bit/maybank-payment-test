@@ -136,6 +136,48 @@ test("DP create order persists did and My Orders filters the created orders by d
     assert.deepEqual((await callAsync(myOrders, jwt({ did: "wrong-user" }))).body.data, []);
 });
 
+test("DP create order accepts positive decimal amounts and preserves them in storage", async t => {
+    const { context, database, createDpOrder } = loadServer(t);
+    vm.runInContext(`
+        encryptDpBody = async body => body;
+        dpRequest = async (label, method, url, token, options) => ({
+            status: 201,
+            data: { ...JSON.parse(options.body), orderRefId: JSON.parse(options.body).partnerInvoiceId }
+        });
+    `, context);
+    const token = jwt({ did: "user-a" });
+    for (const amount of [100.50, 27.50, 29.90, 0.01, 1.2345]) {
+        const partnerInvoiceId = "INV" + String(amount).replace(".", "");
+        const res = dpResponse();
+        await createDpOrder({
+            get: name => name === "x-webinit-token" ? token : name === "x-access-token" ? "access-token" : undefined,
+            body: { partnerInvoiceId, partnerReferenceId: "REF1", currency: "MYR", amount }
+        }, res);
+        assert.equal(res.statusCode, 201);
+        assert.equal(res.body.amount, amount);
+        assert.equal(database.prepare("SELECT amount FROM orders WHERE order_ref_id = ?")
+            .get(partnerInvoiceId).amount, amount);
+    }
+});
+
+test("DP create order rejects non-positive and invalid amounts before calling upstream", async t => {
+    const { context, database, createDpOrder } = loadServer(t);
+    vm.runInContext(`
+        encryptDpBody = async () => { throw new Error("Encryption must not be called"); };
+        dpRequest = async () => { throw new Error("Upstream must not be called"); };
+    `, context);
+    for (const amount of [0, -1, -27.50, NaN, Infinity, -Infinity, "27.50", null, undefined]) {
+        const res = dpResponse();
+        await createDpOrder({
+            get: () => "access-token",
+            body: { partnerInvoiceId: "INV1", partnerReferenceId: "REF1", currency: "MYR", amount }
+        }, res);
+        assert.equal(res.statusCode, 400);
+        assert.equal(res.body, "amount must be a positive number.");
+    }
+    assert.equal(database.prepare("SELECT count(*) AS count FROM orders").get().count, 0);
+});
+
 test("DP create order rejects invalid did tokens before encryption or upstream calls", async t => {
     const { context, database, createDpOrder } = loadServer(t);
     vm.runInContext(`

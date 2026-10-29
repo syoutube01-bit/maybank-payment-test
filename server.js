@@ -47,7 +47,7 @@ async function initializePostgresSchema() {
                 partner_reference_id TEXT NOT NULL,
                 partner_invoice_id TEXT NOT NULL,
                 currency TEXT NOT NULL,
-                amount INTEGER NOT NULL,
+                amount DOUBLE PRECISION NOT NULL,
                 created_at TEXT NOT NULL,
                 payment_status TEXT NOT NULL,
                 order_status TEXT NOT NULL,
@@ -62,6 +62,7 @@ async function initializePostgresSchema() {
                 partner_id TEXT
             );
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS partner_id TEXT;
+            ALTER TABLE orders ALTER COLUMN amount TYPE DOUBLE PRECISION;
             CREATE INDEX IF NOT EXISTS idx_orders_digital_id
                 ON orders (digital_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_orders_digital_id_partner_id
@@ -160,7 +161,7 @@ async function persistOrderResponse(responseData, requestPayload = {}, digitalId
         completedDateTime: order.completedDateTime ?? requestPayload.completedDateTime ?? null,
         PaymentStatusCode: order.PaymentStatusCode ?? requestPayload.PaymentStatusCode ?? null
     };
-    if (typeof storedOrder.amount === "string" && /^\d+(?:\.\d{1,2})?$/.test(storedOrder.amount)) {
+    if (typeof storedOrder.amount === "string" && /^\d+(?:\.\d+)?$/.test(storedOrder.amount)) {
         storedOrder.amount = Number(storedOrder.amount);
     }
     if (typeof storedOrder.orderRefId !== "string" || !storedOrder.orderRefId ||
@@ -365,7 +366,7 @@ app.post("/api/local/orders/payment-status", async (req, res) => {
     }
     let amount = body.amount;
     if (amount !== undefined && amount !== null) {
-        if (typeof amount === "string" && /^\d+(?:\.\d{1,2})?$/.test(amount)) {
+        if (typeof amount === "string" && /^\d+(?:\.\d+)?$/.test(amount)) {
             amount = Number(amount);
         }
         if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
@@ -642,8 +643,8 @@ function validateDpOrder(payload) {
     if (typeof payload.currency !== "string" || !/^[A-Z]{3}$/.test(payload.currency)) {
         return "currency must be a three-letter uppercase currency code.";
     }
-    if (!Number.isSafeInteger(payload.amount) || payload.amount <= 0) {
-        return "amount must be a positive integer in cents.";
+    if (typeof payload.amount !== "number" || !Number.isFinite(payload.amount) || payload.amount <= 0) {
+        return "amount must be a positive number.";
     }
     if (payload.remark !== undefined && (typeof payload.remark !== "string" || payload.remark.length > 60)) {
         return "remark must be a string of at most 60 characters.";

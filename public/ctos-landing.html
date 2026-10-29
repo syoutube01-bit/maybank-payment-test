@@ -459,7 +459,7 @@
                     partnerInvoiceId: buildPartnerInvoiceId()
                 })
             });
-            console.log("Create Order response:", res);
+            
             const text = await res.text();
             if (!res.ok) {
                 throw new Error("Create Order: HTTP " + res.status + "\n" + text);
