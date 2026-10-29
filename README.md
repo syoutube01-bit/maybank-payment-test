@@ -29,6 +29,14 @@ HTTP port, set `PORT` in `.env` or the environment.
 
 ## My Orders
 
+The CTOS landing page calls `/api/dp/view-party` on load. The server proxies a
+bodyless GET to the staging `/api/my/microsite/v1/view/party` endpoint with
+`Content-Type: text/plain`, without query parameters or an `X-Consumer` header,
+matching the working Postman request. It signs that same query-free upstream URL
+using the current access token and timestamp; the MAE web-init token is sent in
+`dip-authorization`. Credentials and signatures must be generated for each session,
+not copied from a previous curl.
+
 On the CTOS landing page, use **Edit** beside the amount to enter a positive MYR
 amount with up to two decimal places, then **Save**. The displayed amount and
 create-order request use the saved value for the current page session. Buy is

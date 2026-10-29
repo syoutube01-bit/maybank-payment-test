@@ -766,9 +766,7 @@ app.get("/api/dp/view-party", dpRateLimiter(), requireDpAccessToken, async (req,
     try {
         const response = await dpRequest("DP view party", "get", DP_VIEW_PARTY_URL,
             req.get("x-webinit-token") || "", {
-                params: { RequestedFields: "all" },
-                accessToken: req.get("x-access-token"),
-                headerOptions: { consumer: "Partner" }
+                accessToken: req.get("x-access-token")
             });
         return sendDpResponse(res, response);
     } catch (error) {
