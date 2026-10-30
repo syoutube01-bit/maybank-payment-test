@@ -43,7 +43,7 @@ function loadLandingRoute() {
         console: { log() {}, error() {} }
     });
     vm.runInContext(fs.readFileSync(path.join(root, "server.js"), "utf8"), context);
-    return { handler: routes.get("/"), middleware };
+    return { handler: routes.get("/"), middleware, routes };
 }
 
 test("partner IDs redirect to their own landing pages and preserve query parameters", () => {
@@ -81,20 +81,19 @@ test("unknown and missing partner IDs retain the existing landing screen", () =>
     }
 });
 
-test("each partner page has a distinct landing and returns to the API test screen", () => {
-    const expectedHeadings = {
-        "easybook-landing.html": "Easybook",
-        "esim-landing.html": "eSIM",
-        "ctos-landing.html": "CTOS"
-    };
+test("server serves the React app shell for every original page path", () => {
+    const { routes } = loadLandingRoute();
+    const expectedPaths = [
+        "/", "/index.html", "/DPLandingScreen.html", "/PNTOrderCreation.html", "/ctos-landing.html",
+        "/easybook-landing.html", "/esim-landing.html", "/my-orders.html", "/paymentstatus",
+        "/paymentstatus.html", "/lookup-payment-status.html"
+    ];
+    // The SPA route is registered with an array path, so the mock stores it under that array.
+    const spaRoute = [...routes.keys()].find(route => Array.isArray(route));
+    assert.ok(spaRoute, "No GET route registered with an array of paths");
+    assert.deepEqual([...spaRoute], expectedPaths);
 
-    for (const [page, heading] of Object.entries(expectedHeadings)) {
-        const html = fs.readFileSync(path.join(root, "public", page), "utf8");
-        assert.match(html, new RegExp(`<h1>${heading}</h1>`));
-        assert.match(html, /class="api-test"[^>]*>API test<\/a>/);
-        assert.match(html, /href \+= window\.location\.search/);
-        if (page === "ctos-landing.html") {
-            assert.doesNotMatch(html, /width:\s*1px;[\s\S]*?clip:\s*rect\(0,\s*0,\s*0,\s*0\)/);
-        }
-    }
+    let sentFile;
+    routes.get(spaRoute)({}, { sendFile(file) { sentFile = file; } });
+    assert.equal(sentFile, path.join(root, "dist", "index.html"));
 });

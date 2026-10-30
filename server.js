@@ -236,12 +236,25 @@ app.get("/", (req, res, next) => {
     return res.redirect(302, `/${landingPage}${query}`);
 });
 
-// Serve HTML
-app.use(express.static(path.join(__dirname, "public")));
-
-// Payment status screen (deep link target: /paymentstatus?oid=MBB232)
-app.get("/paymentstatus", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "paymentstatus.html"));
+// Serve the built React app (npm run build). Each original page path serves the
+// app shell and React Router renders the matching screen; keep in sync with client/src/App.jsx.
+const clientDistPath = path.join(__dirname, "dist");
+const spaRoutes = [
+    "/index.html",
+    "/DPLandingScreen.html",
+    "/PNTOrderCreation.html",
+    "/ctos-landing.html",
+    "/easybook-landing.html",
+    "/esim-landing.html",
+    "/my-orders.html",
+    // Payment status screen (deep link target: /paymentstatus?oid=MBB232)
+    "/paymentstatus",
+    "/paymentstatus.html",
+    "/lookup-payment-status.html"
+];
+app.use(express.static(clientDistPath, { index: false }));
+app.get(["/", ...spaRoutes], (req, res) => {
+    res.sendFile(path.join(clientDistPath, "index.html"));
 });
 
 app.get("/api/local/orders", async (req, res) => {
