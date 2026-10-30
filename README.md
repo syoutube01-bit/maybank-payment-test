@@ -23,9 +23,28 @@ instance unless it is configured for TLS.
 
 Run `npm start`, then open
 <http://localhost:10000/easybook-landing.html?partnerId=mbb-mae-easybook>.
-The start command loads `.env` when present; existing environment variables take
+The start command builds the React frontend into `dist/` first (`npm run build`)
+and then loads `.env` when present; existing environment variables take
 precedence. `.env` is ignored by Git and must not be committed. To use a different
 HTTP port, set `PORT` in `.env` or the environment.
+
+## Frontend
+
+The screens are a React single-page app in [client/](client/), built with Vite
+and routed with React Router. Each screen keeps its original URL (for example
+`/ctos-landing.html`, `/my-orders.html` and `/paymentstatus?oid=MBB232`); the
+Express server returns the app shell for these paths and React Router renders
+the matching page from [client/src/pages/](client/src/pages/). Page routes are
+listed in both [App.jsx](client/src/App.jsx) and `spaRoutes` in
+[server.js](server.js); keep them in sync. Each page's original stylesheet is in
+[client/src/styles/](client/src/styles/) and applies only while that page is shown.
+
+For frontend development with hot reload, run `npm start` (API on port 10000)
+and `npm run dev` in another terminal, then open the Vite URL; `/api` requests
+are proxied to the Express server.
+
+Run `npm test` for the server tests (`node --test`, in [test/](test/)) and the
+React tests (Vitest and React Testing Library, in `client/src/**/__tests__`).
 
 ## My Orders
 
@@ -52,7 +71,7 @@ query parameters.
 Easybook and eSIM use the same hidden API test link; double-click their respective
 wordmarks to open it with the current launch query parameters.
 
-The CTOS, Easybook and eSIM landing pages and [My Orders](public/my-orders.html)
+The CTOS, Easybook and eSIM landing pages and [My Orders](client/src/pages/MyOrdersPage.jsx)
 share the same responsive order cards and loading logic. All four views request
 `/api/my/orders` using the MAE native web-init token and show the current user's
 orders, including older orders without a partner ID. The `partnerId` query
@@ -62,7 +81,7 @@ bridge. Loading failures are displayed in the order section, with a refresh
 button to retry.
 
 On My Orders, **Order ID** and **Invoice ID** request the corresponding DP lookup
-API and open [Payment Status](public/lookup-payment-status.html) with the returned
+API and open [Payment Status](client/src/pages/LookupPaymentStatusPage.jsx) with the returned
 order details. Lookups accept DP responses with details under `order`,
 `responseData`, or `data`, as well as unwrapped order details.
 Both lookups use an in-page modal with a labelled input, Cancel and OK controls,

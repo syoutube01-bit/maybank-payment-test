@@ -92,21 +92,3 @@ test("invalid invoice parameters are rejected without an upstream call", async (
         assert.equal(requests.length, 0);
     }
 });
-
-test("the page sends an encoded partnerInvoiceId", async () => {
-    const html = fs.readFileSync(path.join(root, "public", "DPLandingScreen.html"), "utf8");
-    const output = {};
-    let requestedUrl;
-    const context = vm.createContext({
-        document: { getElementById: () => ({ addEventListener() {}, ...output }) },
-        prompt: () => "INV /+?",
-        window: {},
-        async fetch(url) {
-            requestedUrl = url;
-            return { status: 200, text: async () => "{}" };
-        }
-    });
-    vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
-    await vm.runInContext('accessToken = "test-access-token"; getOrderByInvoiceId();', context);
-    assert.equal(requestedUrl, "/api/dp/order-by-invoice?partnerInvoiceId=INV%20%2F%2B%3F");
-});
