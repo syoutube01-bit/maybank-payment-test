@@ -37,6 +37,7 @@ function loadPage({
             }
         },
         window,
+        crypto: require("node:crypto").webcrypto,
         navigator: { platform: "iPhone" },
         prompt: () => promptValue,
         async fetch(url, options) {
@@ -95,6 +96,19 @@ test("simultaneous clicks wait for a single in-flight token request", async () =
     for (const request of page.requests.slice(1)) {
         assert.equal(request.options.headers["x-access-token"], "cached-token");
     }
+});
+
+test("create order sends a fresh UUID v4 idempotency key for each request", async () => {
+    const page = loadPage();
+    await page.click("createOrderBtn");
+    await page.click("createOrderBtn");
+    const keys = page.requests.filter(request => request.url === "/api/dp/create-order")
+        .map(request => request.options.headers["X-MB-IDEMPOTENCY-KEY"]);
+    assert.equal(keys.length, 2);
+    for (const key of keys) {
+        assert.match(key, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    }
+    assert.notEqual(keys[0], keys[1]);
 });
 
 const failures = [

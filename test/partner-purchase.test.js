@@ -38,6 +38,7 @@ function loadPurchase({ page, platform, fetch, bridge }) {
         document: { getElementById(id) { return elements.get(id); } },
         navigator: { platform },
         window,
+        crypto: require("node:crypto").webcrypto,
         fetch
     });
     vm.runInContext(fs.readFileSync(path.join(__dirname, "../public/payment-session.js"), "utf8"), context);
@@ -91,7 +92,9 @@ for (const page of ["ctos-landing.html", "easybook-landing.html", "esim-landing.
         ]);
         for (const request of requests.filter(request => request.url === "/api/dp/create-order")) {
             assert.equal(request.options.headers["x-webinit-token"], "session-init-token");
+            assert.match(request.options.headers["X-MB-IDEMPOTENCY-KEY"], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
         }
+        assert.notEqual(requests[1].options.headers["X-MB-IDEMPOTENCY-KEY"], requests[3].options.headers["X-MB-IDEMPOTENCY-KEY"]);
         assert.equal(checkout.elements.get("paymentStatus").textContent, "Redirecting to payment...");
         assert.equal(checkout.elements.get("buyButton").disabled, false);
     });

@@ -136,6 +136,30 @@ test("DP create order persists did and My Orders filters the created orders by d
     assert.deepEqual((await callAsync(myOrders, jwt({ did: "wrong-user" }))).body.data, []);
 });
 
+test("DP create order forwards the idempotency key to upstream headers", async t => {
+    const { context, createDpOrder } = loadServer(t);
+    vm.runInContext(`
+        encryptDpBody = async body => body;
+        signDpHeaders = () => "test-signature";
+        dpRequest = async (label, method, url, token, options) => {
+            globalThis.upstreamHeaders = buildDpHeaders(token, options.accessToken,
+                { ...options.headerOptions, method, url, body: options.body });
+            return { status: 400, data: "test response" };
+        };
+    `, context);
+    const idempotencyKey = require("node:crypto").randomUUID();
+    const headers = {
+        "x-webinit-token": jwt({ did: "user-a" }),
+        "x-access-token": "access-token",
+        "x-mb-idempotency-key": idempotencyKey
+    };
+    await createDpOrder({
+        get: name => headers[name.toLowerCase()],
+        body: { partnerInvoiceId: "INV1", partnerReferenceId: "REF1", currency: "MYR", amount: 100 }
+    }, dpResponse());
+    assert.equal(context.upstreamHeaders["X-MB-IDEMPOTENCY-KEY"], idempotencyKey);
+});
+
 test("DP create order accepts positive decimal amounts and preserves them in storage", async t => {
     const { context, database, createDpOrder } = loadServer(t);
     vm.runInContext(`

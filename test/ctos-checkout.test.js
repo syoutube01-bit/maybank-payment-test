@@ -45,6 +45,7 @@ function loadCheckout({ platform = "iPhone", fetch, bridge } = {}) {
         },
         navigator: { platform },
         window,
+        crypto: require("node:crypto").webcrypto,
         fetch,
         atob,
         TextDecoder,
@@ -275,6 +276,7 @@ for (const [platform, destination] of [["iPhone", "ios"], ["Linux aarch64", "and
         assert.equal(options.headers["x-access-token"], "access-token");
         assert.equal(options.headers["x-webinit-token"], "init-token");
         assert.equal(options.headers["Content-Type"], "text/plain");
+        assert.match(options.headers["X-MB-IDEMPOTENCY-KEY"], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
         const body = JSON.parse(options.body);
         assert.equal(body.amount, 100);
         assert.equal(body.currency, "MYR");

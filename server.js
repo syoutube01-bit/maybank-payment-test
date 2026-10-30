@@ -599,7 +599,7 @@ function signDpHeaders(method, url, headers, body = "") {
 
 function buildDpHeaders(webinitToken, accessToken, {
     method, url, body, contentType = "text/plain", environment = "U",
-    e2eId = crypto.randomBytes(16).toString("hex"), consumer
+    e2eId = crypto.randomBytes(16).toString("hex"), consumer, idempotencyKey
 }) {
     const timestamp = Date.now().toString();
     const headers = {
@@ -616,6 +616,7 @@ function buildDpHeaders(webinitToken, accessToken, {
     };
     if (webinitToken) headers["dip-authorization"] = `bearer ${webinitToken}`;
     if (consumer) headers["X-Consumer"] = consumer;
+    if (idempotencyKey) headers["X-MB-IDEMPOTENCY-KEY"] = idempotencyKey;
     headers["X-MB-Signature-Value"] = signDpHeaders(method, url, headers, body);
     return headers;
 }
@@ -751,7 +752,8 @@ app.post("/api/dp/create-order", dpRateLimiter(), requireDpAccessToken,
         const response = await dpRequest("DP create order", "post", DP_ORDERS_URL,
             webinitToken, {
                 body: encryptedBody,
-                accessToken
+                accessToken,
+                headerOptions: { idempotencyKey: req.get("X-MB-IDEMPOTENCY-KEY") }
             });
         await persistOrderResponse(response.data, orderPayload, digitalId, partnerId);
         return sendDpResponse(res, response);

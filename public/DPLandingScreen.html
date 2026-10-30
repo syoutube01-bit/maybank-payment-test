@@ -90,6 +90,7 @@ async function createOrder() {
             method: "POST",
             headers: {
                 "Content-Type": "text/plain",
+                "X-MB-IDEMPOTENCY-KEY": crypto.randomUUID(),
                 "x-webinit-token": webinitToken,
                 "x-access-token": accessToken
             },
