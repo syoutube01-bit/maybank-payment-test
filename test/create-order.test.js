@@ -77,6 +77,7 @@ test("create order posts to the cURL endpoint with body and headers in the corre
     const { webinitToken, partnerId, ...expectedBody } = order;
     assert.deepEqual(JSON.parse(JSON.stringify(body)), expectedBody);
     assert.equal(config.headers["Content-Type"], "application/json");
+    assert.match(config.headers["X-MB-IDEMPOTENCY-KEY"], /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     assert.equal(config.headers["x-mb-client-id"], partnerId);
     assert.equal(config.headers["dip-authorization"], `bearer ${webinitToken}`);
     assert.equal(config.headers["x-mb-env"], "U");
@@ -85,6 +86,20 @@ test("create order posts to the cURL endpoint with body and headers in the corre
     assert.equal(response.body.success, true);
     assert.equal(response.body.data.orderId, "test-order-id");
     cleanup();
+});
+
+test("create order forwards the supplied idempotency key", async () => {
+    const { handler, requests, cleanup } = loadCreateOrderRoute();
+    try {
+        const idempotencyKey = "346918df-af88-4b3a-95e3-273eebf30aea";
+        await handler({
+            body: { ...order },
+            headers: { "x-mb-idempotency-key": idempotencyKey }
+        }, createResponse());
+        assert.equal(requests[0].config.headers["X-MB-IDEMPOTENCY-KEY"], idempotencyKey);
+    } finally {
+        cleanup();
+    }
 });
 
 test("create order saves the returned order details in PostgreSQL", async () => {

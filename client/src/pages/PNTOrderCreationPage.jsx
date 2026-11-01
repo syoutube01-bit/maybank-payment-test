@@ -53,7 +53,10 @@ export default function PNTOrderCreationPage() {
         try {
             const res = await fetch("/api/create-order", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-MB-IDEMPOTENCY-KEY": crypto.randomUUID()
+                },
                 body: JSON.stringify(requestBody)
             });
 

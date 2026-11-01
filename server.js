@@ -499,6 +499,7 @@ app.post("/api/create-order", async (req, res) => {
 
         const requestHeaders = {
             "Content-Type": "application/json",
+            "X-MB-IDEMPOTENCY-KEY": req.headers?.["x-mb-idempotency-key"] || crypto.randomUUID(),
             "x-mb-client-id": partnerId,
             "x-mb-e2e-id": "346918df-af88-4b3a-95e3-273eebf30aea",
             "x-mb-env": "U",
