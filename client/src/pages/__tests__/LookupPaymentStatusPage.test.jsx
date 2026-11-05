@@ -107,7 +107,7 @@ test("both status screens share the same receipt markup and responsive styling, 
     vi.restoreAllMocks();
 
     stubFetch(async () => ({ ok: true, async json() { return { success: true, data: savedOrder }; } }));
-    const status = renderApp("/paymentstatus?orderId=MBB814");
+    const status = renderApp("/paymentstatus?orderRefId=MBB814");
     await waitFor(() => expect(document.getElementById("orderDetails")).not.toHaveAttribute("hidden"));
     expect(receipt()).toBe(lookupReceipt);
     expect(pageStyles()).toBe(lookupCss);

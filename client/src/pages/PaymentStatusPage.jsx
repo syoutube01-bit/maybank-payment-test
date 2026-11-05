@@ -12,7 +12,7 @@ function getQueryParam(search, name) {
     return value.trim();
 }
 
-// Deep link target: /paymentstatus?oid=MBB232 (or ?orderId=).
+// Deep link target: /paymentstatus?orderRefId=MBB232&status=SUCCESS.
 export default function PaymentStatusPage() {
     const { search } = useLocation();
     const [message, setMessage] = useState("Loading order details...");
@@ -25,13 +25,12 @@ export default function PaymentStatusPage() {
         setMessageError(false);
         setDetails(null);
 
-        const orderId = getQueryParam(search, "orderId") || getQueryParam(search, "oid");
-        if (!orderId) {
-            setMessage("An orderId is required to load payment details.");
+        const orderRefId = getQueryParam(search, "orderRefId");
+        if (!orderRefId) {
+            setMessage("An orderRefId is required to load payment details.");
             setMessageError(true);
             return;
         }
-        const orderRefId = orderId.startsWith("MBB") ? orderId : "MBB" + orderId;
 
         (async () => {
             try {

@@ -32,7 +32,7 @@ HTTP port, set `PORT` in `.env` or the environment.
 
 The screens are a React single-page app in [client/](client/), built with Vite
 and routed with React Router. Each screen keeps its original URL (for example
-`/ctos-landing.html`, `/my-orders.html` and `/paymentstatus?oid=MBB232`); the
+`/ctos-landing.html`, `/my-orders.html` and `/paymentstatus?orderRefId=MBB232&status=SUCCESS`); the
 Express server returns the app shell for these paths and React Router renders
 the matching page from [client/src/pages/](client/src/pages/). Page routes are
 listed in both [App.jsx](client/src/App.jsx) and `spaRoutes` in

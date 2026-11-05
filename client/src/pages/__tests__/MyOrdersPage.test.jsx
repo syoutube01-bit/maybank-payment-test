@@ -91,7 +91,7 @@ test("refresh reuses the existing token and replaces orders with a fresh uncache
     expect(bridge.callAPI).toHaveBeenCalledTimes(1);
     expect(requests).toBe(2);
     const link = ui.list.querySelector("li > a");
-    expect(link).toHaveAttribute("href", "/paymentstatus?orderId=MBB1");
+    expect(link).toHaveAttribute("href", "/paymentstatus?orderRefId=MBB1");
     expect(link.children[1]).toHaveTextContent("SUCCESS");
     expect(ui.button).toBeEnabled();
     expect(ui.section).toHaveAttribute("aria-busy", "false");
@@ -533,7 +533,7 @@ test("order cards include a reference, status, formatted amount, date and detail
     await ui.initialized();
     const card = ui.list.querySelector("li > a");
     expect(card).toHaveClass("my-order");
-    expect(card).toHaveAttribute("href", "/paymentstatus?orderId=MBB1");
+    expect(card).toHaveAttribute("href", "/paymentstatus?orderRefId=MBB1");
     expect(card.children[0].textContent).toBe("Order #MBB1");
     expect(card.children[1]).toHaveAttribute("data-status", "SUCCESS");
     expect(card.children[2].textContent).toBe("MYR 100.00");
@@ -542,7 +542,7 @@ test("order cards include a reference, status, formatted amount, date and detail
     expect(card.children[4].textContent).toBe("View order details");
 
     await ui.user.click(card);
-    expect(ui.location()).toBe("/paymentstatus?orderId=MBB1");
+    expect(ui.location()).toBe("/paymentstatus?orderRefId=MBB1");
     expect(screen.getByRole("heading", { name: "Payment Status" })).toBeInTheDocument();
 });
 

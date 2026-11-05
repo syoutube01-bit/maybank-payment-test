@@ -25,7 +25,7 @@ function OrderCard({ order }) {
     const createdDate = formatDate(order.createdAt);
     return (
         <li>
-            <Link className="my-order" to={"/paymentstatus?orderId=" + encodeURIComponent(order.orderRefId)}>
+            <Link className="my-order" to={"/paymentstatus?orderRefId=" + encodeURIComponent(order.orderRefId)}>
                 <span className="my-order-id">{"Order #" + order.orderRefId}</span>
                 <span className="my-order-status" data-status={String(order.paymentStatus || "").toUpperCase()}>
                     {order.paymentStatus}

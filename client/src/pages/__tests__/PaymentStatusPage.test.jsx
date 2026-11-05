@@ -22,8 +22,8 @@ async function loadPage(search, fetchResult = { ok: true, success: true, data: s
     return { ...view, byId, errors, requests: () => fetch.mock.calls.map(([url]) => url) };
 }
 
-test("payment page prefixes orderId and displays database values, not URL status or invoice", async () => {
-    const { byId, requests } = await loadPage("?orderId=777&partnerInvoiceId=untrusted&status=SUCCESS&amount=999");
+test("payment page uses orderRefId and displays database values, not URL status or invoice", async () => {
+    const { byId, requests } = await loadPage("?orderRefId=MBB777&partnerInvoiceId=untrusted&status=SUCCESS&amount=999");
     expect(requests()).toEqual(["/api/local/orders/MBB777"]);
     for (const field of ["orderRefId", "partnerReferenceId", "partnerInvoiceId", "paymentStatus"]) {
         expect(byId(field).textContent).toBe(savedOrder[field]);
@@ -36,13 +36,16 @@ test("payment page prefixes orderId and displays database values, not URL status
     expect(byId("message")).toHaveAttribute("hidden");
 });
 
-test("payment page supports existing oid links, the .html path and does not double-prefix MBB", async () => {
-    for (const [path, search] of [
-        ["/paymentstatus", "?oid=MBB777"], ["/paymentstatus", "?orderId=MBB777"],
-        ["/paymentstatus", "?oid=777"], ["/paymentstatus.html", "?oid=777"]
+test("payment page uses orderRefId unchanged for success and failed redirects and the .html path", async () => {
+    for (const [path, search, expectedRef] of [
+        ["/paymentstatus", "?orderRefId=MBB977&status=FAILED", "MBB977"],
+        ["/paymentstatus", "?orderRefId=MBB977&status=SUCCESS", "MBB977"],
+        ["/paymentstatus.html", "?orderRefId=MBB777", "MBB777"],
+        ["/paymentstatus", "?orderRefId=777", "777"],
+        ["/paymentstatus", "?orderRefId=MBB777&orderId=999&oid=888", "MBB777"]
     ]) {
         const { requests, unmount } = await loadPage(search, undefined, path);
-        expect(requests()).toEqual(["/api/local/orders/MBB777"]);
+        expect(requests()).toEqual(["/api/local/orders/" + expectedRef]);
         unmount();
     }
 });
@@ -57,7 +60,7 @@ test("payment page colors successful and failed, rejected or cancelled statuses 
         ["REJECT", "status-error"],
         ["CANCEL", "status-error"]
     ]) {
-        const { byId, unmount } = await loadPage("?orderId=777", {
+        const { byId, unmount } = await loadPage("?orderRefId=MBB777", {
             ok: true, success: true, data: { ...savedOrder, paymentStatus: status }
         });
         const classes = byId("paymentStatus").classList;
@@ -68,10 +71,10 @@ test("payment page colors successful and failed, rejected or cancelled statuses 
 });
 
 test("payment page shows missing ID errors without fetching", async () => {
-    for (const search of ["", "?orderId=null", "?orderId=undefined", "?orderId=%20"]) {
+    for (const search of ["", "?orderRefId=null", "?orderRefId=undefined", "?orderRefId=%20", "?orderId=777", "?oid=MBB777"]) {
         const { requests, byId, unmount } = await loadPage(search);
         expect(requests()).toEqual([]);
-        expect(byId("message").textContent).toBe("An orderId is required to load payment details.");
+        expect(byId("message").textContent).toBe("An orderRefId is required to load payment details.");
         expect(byId("message")).toHaveClass("error");
         expect(byId("orderDetails")).toHaveAttribute("hidden");
         unmount();
@@ -83,7 +86,7 @@ test("payment page shows not found and network errors without displaying payment
         { ok: false, success: false, message: "Order not found" },
         new Error("Network unavailable")
     ]) {
-        const { byId, errors, unmount } = await loadPage("?orderId=777&status=SUCCESS", result);
+        const { byId, errors, unmount } = await loadPage("?orderRefId=MBB777&status=SUCCESS", result);
         expect(byId("message").textContent).toBe(result.message);
         expect(byId("message")).toHaveClass("error");
         expect(byId("orderDetails")).toHaveAttribute("hidden");
