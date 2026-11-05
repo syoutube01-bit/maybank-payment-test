@@ -73,9 +73,11 @@ export async function createPartnerOrder(paymentSession, accessToken, { partnerI
         throw new Error("Create Order failed: " + text);
     }
     const platform = detectNativePlatform();
+    console.log("platform", platform);
     const redirectionUrl = platform === "ios" ? data.redirection?.ios : data.redirection?.android;
+    console.log("redirectionUrl", redirectionUrl);
     if (typeof redirectionUrl !== "string" || !redirectionUrl.trim()) {
         throw new Error("No redirection URL for platform: " + platform);
     }
-    window.location.href = toDeepLink(redirectionUrl);
+    window.location.href = redirectionUrl;
 }
