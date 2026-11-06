@@ -123,7 +123,6 @@ export default function CtosLandingPage() {
                     <h2 id="email-heading">Your Maybank registered email</h2>
                     <div className="email-row">
                         <span>Saravan***jan@yopmail.com</span>
-                        <button className="outline-button" type="button">Update</button>
                     </div>
                     <p className="privacy">CTOS is committed to protecting your privacy in accordance with the Personal Data Protection Act 2010 of Malaysia (PDPA).</p>
                 </section>
