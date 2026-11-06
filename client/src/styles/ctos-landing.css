@@ -189,6 +189,11 @@ h2 {
     font-size: 16px;
 }
 .promo-input::placeholder { color: #c8cacc; }
+.promo-error {
+    margin: 8px 0 0;
+    color: #c62828;
+    font-size: 14px;
+}
 .agreement {
     display: flex;
     align-items: center;

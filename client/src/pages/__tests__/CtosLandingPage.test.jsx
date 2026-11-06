@@ -83,6 +83,20 @@ test("CTOS edits and saves the displayed amount used by checkout", async () => {
     expect(display).toHaveTextContent(/^RM0\.01$/);
 });
 
+test("CTOS shows and clears an invalid promo code error", async () => {
+    const checkout = await loadCheckout();
+    const { byId, user } = checkout;
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Invalid promo code");
+    expect(ctosCss).toContain(".promo-error");
+    expect(ctosCss).toContain("color: #c62828");
+
+    await user.type(byId("promoCode"), "TEST");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
 for (const value of ["", "0", "-1", "abc", "Infinity", "1.001"]) {
     test(`CTOS rejects invalid payment amount (${value})`, async () => {
         const checkout = await loadCheckout();

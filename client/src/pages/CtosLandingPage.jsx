@@ -19,6 +19,7 @@ export default function CtosLandingPage() {
     const [amountDraft, setAmountDraft] = useState("100");
     const [isEditingAmount, setIsEditingAmount] = useState(false);
     const [viewPartyResponse, setViewPartyResponse] = useState("");
+    const [promoError, setPromoError] = useState(false);
 
     useEffect(() => {
         if (isEditingAmount) amountInputRef.current.focus();
@@ -171,9 +172,16 @@ export default function CtosLandingPage() {
 
                     <label className="promo-label" htmlFor="promoCode">I Have a Promo Code</label>
                     <div className="promo-row">
-                        <input className="promo-input" id="promoCode" type="text" placeholder="Enter promo code" />
-                        <button className="outline-button" type="button">Apply</button>
+                        <input
+                            className="promo-input"
+                            id="promoCode"
+                            type="text"
+                            placeholder="Enter promo code"
+                            onChange={() => setPromoError(false)}
+                        />
+                        <button className="outline-button" type="button" onClick={() => setPromoError(true)}>Apply</button>
                     </div>
+                    {promoError && <p className="promo-error" role="alert">Invalid promo code</p>}
 
                     <label className="agreement">
                         <input
