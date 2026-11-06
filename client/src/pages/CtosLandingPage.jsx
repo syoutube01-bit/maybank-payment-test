@@ -19,7 +19,8 @@ export default function CtosLandingPage() {
     const [amountDraft, setAmountDraft] = useState("100");
     const [isEditingAmount, setIsEditingAmount] = useState(false);
     const [viewPartyResponse, setViewPartyResponse] = useState("");
-    const [promoError, setPromoError] = useState(false);
+    const [promoCode, setPromoCode] = useState("");
+    const [promoError, setPromoError] = useState("");
 
     useEffect(() => {
         if (isEditingAmount) amountInputRef.current.focus();
@@ -176,11 +177,19 @@ export default function CtosLandingPage() {
                             id="promoCode"
                             type="text"
                             placeholder="Enter promo code"
-                            onChange={() => setPromoError(false)}
+                            value={promoCode}
+                            onChange={event => {
+                                setPromoCode(event.target.value);
+                                setPromoError("");
+                            }}
                         />
-                        <button className="outline-button" type="button" onClick={() => setPromoError(true)}>Apply</button>
+                        <button
+                            className="outline-button"
+                            type="button"
+                            onClick={() => setPromoError(promoCode.trim() ? "Invalid promo code" : "Please enter promo code")}
+                        >Apply</button>
                     </div>
-                    {promoError && <p className="promo-error" role="alert">Invalid promo code</p>}
+                    {promoError && <p className="promo-error" role="alert">{promoError}</p>}
 
                     <label className="agreement">
                         <input
